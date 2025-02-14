@@ -1,6 +1,7 @@
-import { Context, Effect, Either, Layer, Schema } from "effect";
+import { eq, isNull } from "drizzle-orm";
+import { Effect } from "effect";
 import { Database, DatabaseLive } from "../../db";
-import { servers, type ServerInfo } from "../../db/schema";
+import { servers } from "../../db/schema";
 import {
   ServerAlreadyDeleted,
   ServerAlreadyExists,
@@ -8,7 +9,6 @@ import {
   ServerNotDeleted,
   ServerNotFound,
 } from "./errors";
-import { eq, isNull } from "drizzle-orm";
 import { CreateServerSchema, RemoveServerSchema } from "./schemas";
 
 export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/core/server/repo", {

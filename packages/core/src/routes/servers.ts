@@ -7,13 +7,10 @@ import {
   ServerNotFound,
 } from "@p0/core/src/entities/server/errors";
 import { Effect, Layer, pipe, Schema } from "effect";
-import { DatabaseLive } from "../db";
 import { ServerRepository } from "../entities/server/repository";
 import { CreateServerSchema, ListServersSchema, NullableServerSchema } from "../entities/server/schemas";
 
 const ServerIdParam = HttpApiSchema.param("sid", Schema.String);
-
-const WithDeletedParam = HttpApiSchema.param("deleted", Schema.String);
 
 export class UnknownException extends Schema.TaggedError<UnknownException>()("UnknownException", {}) {}
 
@@ -144,6 +141,6 @@ export const ServersApiLive = HttpApiBuilder.group(ServersApi, "Servers", (handl
         )
       );
   })
-).pipe(Layer.provide([DatabaseLive]));
+);
 
 export const ServerLive = HttpApiBuilder.api(ServersApi).pipe(Layer.provide(ServersApiLive));
