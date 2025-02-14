@@ -1,14 +1,15 @@
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import {
-  HttpApi,
-  HttpApiBuilder,
-  HttpApiEndpoint,
-  HttpApiGroup,
-  HttpApiSchema,
-  HttpClientResponse,
-} from "@effect/platform";
-import { Servers } from "@p0/core/src/entities/servers";
-import { Effect, Either, Layer, Option, pipe, Schema } from "effect";
+  ServerAlreadyDeleted,
+  ServerAlreadyExists,
+  ServerNotCreated,
+  ServerNotDeleted,
+  ServerNotFound,
+} from "@p0/core/src/entities/server/errors";
+import { Effect, Layer, pipe, Schema } from "effect";
 import { DatabaseLive } from "../db";
+import { ServerRepository } from "../entities/server/repository";
+import { CreateServerSchema, ListServersSchema, NullableServerSchema } from "../entities/server/schemas";
 
 const ServerIdParam = HttpApiSchema.param("sid", Schema.String);
 
@@ -22,7 +23,7 @@ export const ServersApi = HttpApi.make("ServersApi")
     HttpApiGroup.make("Servers")
       .add(
         HttpApiEndpoint.get("listAllServers")`/all`.addError(UnknownException, { status: 500 }).addSuccess(
-          Servers.ListServersSchema.pipe(
+          ListServersSchema.pipe(
             HttpApiSchema.withEncoding({
               kind: "Json",
               contentType: "application/json",
@@ -34,7 +35,7 @@ export const ServersApi = HttpApi.make("ServersApi")
         HttpApiEndpoint.get("listNonDeletedServers")`/non-deleted`
           .addError(UnknownException, { status: 500 })
           .addSuccess(
-            Servers.ListServersSchema.pipe(
+            ListServersSchema.pipe(
               HttpApiSchema.withEncoding({
                 kind: "Json",
                 contentType: "application/json",
@@ -45,9 +46,9 @@ export const ServersApi = HttpApi.make("ServersApi")
       .add(
         HttpApiEndpoint.get("getServer")`/${ServerIdParam}`
           .addError(UnknownException, { status: 500 })
-          .addError(Servers.ServerNotFound, { status: 404 })
+          .addError(ServerNotFound, { status: 404 })
           .addSuccess(
-            Servers.NullableServerSchema.pipe(
+            NullableServerSchema.pipe(
               HttpApiSchema.withEncoding({
                 kind: "Json",
                 contentType: "application/json",
@@ -58,9 +59,10 @@ export const ServersApi = HttpApi.make("ServersApi")
       .add(
         HttpApiEndpoint.post("createServers")`/`
           .addError(UnknownException, { status: 500 })
-          .addError(Servers.ServerNotCreated, { status: 400 })
+          .addError(ServerNotCreated, { status: 400 })
+          .addError(ServerAlreadyExists, { status: 409 })
           .setPayload(
-            Servers.CreateServerSchema.pipe(
+            CreateServerSchema.pipe(
               HttpApiSchema.withEncoding({
                 kind: "Json",
                 contentType: "application/json",
@@ -68,7 +70,7 @@ export const ServersApi = HttpApi.make("ServersApi")
             )
           )
           .addSuccess(
-            Schema.NullOr(Servers.ServerSchema).pipe(
+            NullableServerSchema.pipe(
               HttpApiSchema.withEncoding({
                 kind: "Json",
                 contentType: "application/json",
@@ -79,11 +81,11 @@ export const ServersApi = HttpApi.make("ServersApi")
       .add(
         HttpApiEndpoint.del("deleteServer")`/${ServerIdParam}`
           .addError(UnknownException, { status: 500 })
-          .addError(Servers.ServerNotFound, { status: 404 })
-          .addError(Servers.ServerAlreadyDeleted, { status: 409 })
-          .addError(Servers.ServerNotDeleted, { status: 400 })
+          .addError(ServerNotFound, { status: 404 })
+          .addError(ServerAlreadyDeleted, { status: 409 })
+          .addError(ServerNotDeleted, { status: 400 })
           .addSuccess(
-            Servers.NullableServerSchema.pipe(
+            NullableServerSchema.pipe(
               HttpApiSchema.withEncoding({
                 kind: "Json",
                 contentType: "application/json",
@@ -96,10 +98,11 @@ export const ServersApi = HttpApi.make("ServersApi")
 // Implement the API
 export const ServersApiLive = HttpApiBuilder.group(ServersApi, "Servers", (handlers) =>
   Effect.gen(function* (_) {
+    const repo = yield* _(ServerRepository);
     return handlers
       .handle("listNonDeletedServers", () =>
         pipe(
-          Servers.all_non_deleted
+          repo.all_non_deleted
           // Effect.either,
           // Effect.catchTags({
           //   UnknownException: (e) => Effect.fail(e),
@@ -108,7 +111,7 @@ export const ServersApiLive = HttpApiBuilder.group(ServersApi, "Servers", (handl
       )
       .handle("listAllServers", () =>
         pipe(
-          Servers.all
+          repo.all
           // Effect.either,
           // Effect.catchTags({
           //   UnknownException: (e) => Effect.fail(e),
@@ -117,7 +120,7 @@ export const ServersApiLive = HttpApiBuilder.group(ServersApi, "Servers", (handl
       )
       .handle("getServer", (params) =>
         pipe(
-          Servers.find_by_id(params.path.sid)
+          repo.find_by_id(params.path.sid)
           // Effect.catchTags({
           //   UnknownException: (e) => Effect.fail(e),
           // })
@@ -125,15 +128,15 @@ export const ServersApiLive = HttpApiBuilder.group(ServersApi, "Servers", (handl
       )
       .handle("deleteServer", (params) =>
         pipe(
-          Servers.remove(params.path.sid),
-          Effect.catchTags({
-            UnknownException: (e) => Effect.fail(e),
-          })
+          repo.remove(params.path.sid)
+          // Effect.catchTags({
+          //   UnknownException: (e) => Effect.fail(e),
+          // })
         )
       )
       .handle("createServers", (params) =>
         pipe(
-          Servers.create(params.payload)
+          repo.create(params.payload)
           // Effect.catchTags({
           //   UnknownException: (e) => Effect.fail(e),
           //   ServerNotCreated: (e) => Effect.fail(e),

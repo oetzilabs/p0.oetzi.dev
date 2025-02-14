@@ -5,9 +5,9 @@ import {
   HttpApiSwagger,
   HttpMiddleware,
   HttpServer,
-  HttpServerResponse,
 } from "@effect/platform";
 import { BunHttpServer, BunRuntime } from "@effect/platform-bun";
+import { ServerRepository } from "@p0/core/src/entities/server/repository";
 import { ServerLive, ServersApi } from "@p0/core/src/routes/servers";
 import { Effect, Layer } from "effect";
 
@@ -21,6 +21,7 @@ const HttpLive = HttpApiBuilder.serve(HttpMiddleware.logger).pipe(
   ),
   Layer.provide(HttpApiBuilder.middlewareCors()),
   Layer.provide(ServerLive),
+  Layer.provide(ServerRepository.Default),
   HttpServer.withLogAddress,
   Layer.provide(BunHttpServer.layer({ port: 3000 }))
 );
