@@ -14,8 +14,6 @@ import { Effect, Layer } from "effect";
 const HttpLive = HttpApiBuilder.serve(HttpMiddleware.logger).pipe(
   Layer.provide(
     HttpApiSwagger.layer({
-      // Specify the Swagger documentation path.
-      // "/docs" is the default path.
       path: "/docs",
     })
   ),
