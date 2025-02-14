@@ -1,0 +1,20 @@
+{
+  "name": "p0.oetzi.dev",
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "5.7.3"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.77.0",
+    "@effect/platform-bun": "^0.57.0",
+    "effect": "3.13.0",
+    "hono": "^4.7.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}
