@@ -1,5 +1,5 @@
 import { Path } from "@effect/platform";
-import { assert, beforeAll, beforeEach, describe, it } from "@effect/vitest";
+import { assert, beforeAll, describe, it } from "@effect/vitest";
 import { Database, DatabaseLive } from "@p0/core/src/db";
 import { ServerRepository } from "@p0/core/src/entities/server/repository";
 import { migrate } from "drizzle-orm/libsql/migrator";
@@ -37,6 +37,34 @@ describe("Servers", () => {
       assert.strictEqual(server.url, "test");
     }).pipe(Effect.provide(ServerRepository.Default))
   );
+  it.sequential("allServers", () =>
+    Effect.gen(function* (_) {
+      const server_repo = yield* _(ServerRepository);
+      const server = yield* server_repo.create({
+        name: "test",
+        url: "test",
+      });
+      const found_server = yield* server_repo.find_by_id(server.id);
+      assert.strictEqual(found_server.name, "test");
+      assert.strictEqual(found_server.url, "test");
+      const all_servers = yield* server_repo.all;
+      assert.strictEqual(all_servers.length, 1);
+    }).pipe(Effect.provide(ServerRepository.Default))
+  );
+  it.sequential("allNonDeletedServers", () =>
+    Effect.gen(function* (_) {
+      const server_repo = yield* _(ServerRepository);
+      const server = yield* server_repo.create({
+        name: "test",
+        url: "test",
+      });
+      const found_server = yield* server_repo.find_by_id(server.id);
+      assert.strictEqual(found_server.name, "test");
+      assert.strictEqual(found_server.url, "test");
+      const all_servers = yield* server_repo.all_non_deleted;
+      assert.strictEqual(all_servers.length, 1);
+    }).pipe(Effect.provide(ServerRepository.Default))
+  );
   it.sequential("findServer", () =>
     Effect.gen(function* (_) {
       const server_repo = yield* _(ServerRepository);
@@ -65,34 +93,6 @@ describe("Servers", () => {
       const removed_server = yield* server_repo.remove(server!.id);
       assert.strictEqual(removed_server.name, "test");
       assert.strictEqual(removed_server.url, "test");
-    }).pipe(Effect.provide(ServerRepository.Default))
-  );
-  it.sequential("allServers", () =>
-    Effect.gen(function* (_) {
-      const server_repo = yield* _(ServerRepository);
-      const server = yield* server_repo.create({
-        name: "test",
-        url: "test",
-      });
-      const found_server = yield* server_repo.find_by_id(server.id);
-      assert.strictEqual(found_server.name, "test");
-      assert.strictEqual(found_server.url, "test");
-      const all_servers = yield* server_repo.all;
-      assert.strictEqual(all_servers.length, 1);
-    }).pipe(Effect.provide(ServerRepository.Default))
-  );
-  it.sequential("allNonDeletedServers", () =>
-    Effect.gen(function* (_) {
-      const server_repo = yield* _(ServerRepository);
-      const server = yield* server_repo.create({
-        name: "test",
-        url: "test",
-      });
-      const found_server = yield* server_repo.find_by_id(server.id);
-      assert.strictEqual(found_server.name, "test");
-      assert.strictEqual(found_server.url, "test");
-      const all_servers = yield* server_repo.all_non_deleted;
-      assert.strictEqual(all_servers.length, 1);
     }).pipe(Effect.provide(ServerRepository.Default))
   );
 });
