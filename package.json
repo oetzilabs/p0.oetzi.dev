@@ -8,12 +8,7 @@
   "peerDependencies": {
     "typescript": "5.7.3"
   },
-  "dependencies": {
-    "@effect/platform": "^0.77.0",
-    "@effect/platform-bun": "^0.57.0",
-    "effect": "3.13.0",
-    "hono": "^4.7.0"
-  },
+  "dependencies": {},
   "workspaces": [
     "packages/*"
   ]

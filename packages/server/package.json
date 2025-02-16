@@ -1,0 +1,26 @@
+{
+  "name": "@p0/server",
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@effect/language-service": "^0.2.0",
+    "@effect/vitest": "^0.18.1",
+    "@types/bun": "latest",
+    "vitest": "^3.0.5"
+  },
+  "scripts": {
+    "test": "vitest"
+  },
+  "peerDependencies": {
+    "typescript": "5.7.3"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.77.0",
+    "@effect/platform-bun": "^0.57.0",
+    "effect": "3.13.0",
+    "hono": "^4.7.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

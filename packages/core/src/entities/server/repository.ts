@@ -9,7 +9,7 @@ import {
   ServerNotDeleted,
   ServerNotFound,
 } from "./errors";
-import { CreateServerSchema, RemoveServerSchema } from "./schemas";
+import { CreateServerSchema, FindServerByNameSchema, RemoveServerSchema } from "./schemas";
 
 export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/core/server/repo", {
   effect: Effect.gen(function* (_) {
@@ -28,6 +28,16 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
 
         if (_servers.length !== 1) return yield* Effect.fail(new ServerNotCreated());
 
+        return yield* Effect.succeed(_servers[0]);
+      });
+
+    const find_by_name = (name: typeof FindServerByNameSchema.Type) =>
+      Effect.gen(function* (_) {
+        const get_server = Effect.tryPromise(() =>
+          db.select().from(servers).where(eq(servers.name, name)).limit(1).execute()
+        );
+        const _servers = yield* get_server;
+        if (_servers.length !== 1) return yield* Effect.fail(new ServerNotFound());
         return yield* Effect.succeed(_servers[0]);
       });
     const remove = (id: typeof RemoveServerSchema.Type) =>
@@ -86,6 +96,7 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
       all_non_deleted,
       all,
       find_by_id,
+      find_by_name,
     } as const;
   }),
   dependencies: [DatabaseLive],
