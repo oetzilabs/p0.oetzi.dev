@@ -43,7 +43,6 @@
         "@effect/language-service": "^0.2.0",
         "@effect/vitest": "^0.18.1",
         "@types/bun": "latest",
-        "bun-types": "latest",
         "vitest": "^3.0.5",
       },
       "peerDependencies": {
