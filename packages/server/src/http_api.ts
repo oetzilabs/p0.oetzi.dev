@@ -17,4 +17,4 @@ const HttpLive = HttpApiBuilder.serve(HttpMiddleware.logger).pipe(
   Layer.provide(BunHttpServer.layer({ port: 3000 }))
 );
 
-export const launcher = () => Layer.launch(HttpLive).pipe(BunRuntime.runMain);
+export const http_api_launcher = () => Layer.launch(HttpLive).pipe(BunRuntime.runMain);

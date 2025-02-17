@@ -1,3 +1,3 @@
-import { launcher } from "@p0/server/src/index";
+import { http_api_launcher } from "@p0/server/src/http_api";
 
-launcher();
+const http_api = http_api_launcher();
