@@ -97,49 +97,11 @@ export const ServersApiLive = HttpApiBuilder.group(ServersApi, "Servers", (handl
   Effect.gen(function* (_) {
     const repo = yield* _(ServerRepository);
     return handlers
-      .handle("listNonDeletedServers", () =>
-        pipe(
-          repo.all_non_deleted
-          // Effect.either,
-          // Effect.catchTags({
-          //   UnknownException: (e) => Effect.fail(e),
-          // })
-        )
-      )
-      .handle("listAllServers", () =>
-        pipe(
-          repo.all
-          // Effect.either,
-          // Effect.catchTags({
-          //   UnknownException: (e) => Effect.fail(e),
-          // })
-        )
-      )
-      .handle("getServer", (params) =>
-        pipe(
-          repo.find_by_id(params.path.sid)
-          // Effect.catchTags({
-          //   UnknownException: (e) => Effect.fail(e),
-          // })
-        )
-      )
-      .handle("deleteServer", (params) =>
-        pipe(
-          repo.remove(params.path.sid)
-          // Effect.catchTags({
-          //   UnknownException: (e) => Effect.fail(e),
-          // })
-        )
-      )
-      .handle("createServers", (params) =>
-        pipe(
-          repo.create(params.payload)
-          // Effect.catchTags({
-          //   UnknownException: (e) => Effect.fail(e),
-          //   ServerNotCreated: (e) => Effect.fail(e),
-          // })
-        )
-      );
+      .handle("listNonDeletedServers", () => pipe(repo.all_non_deleted))
+      .handle("listAllServers", () => pipe(repo.all))
+      .handle("getServer", (params) => pipe(repo.find_by_id(params.path.sid)))
+      .handle("deleteServer", (params) => pipe(repo.remove(params.path.sid)))
+      .handle("createServers", (params) => pipe(repo.create(params.payload)));
   })
 );
 

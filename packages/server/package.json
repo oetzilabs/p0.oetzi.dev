@@ -15,10 +15,11 @@
     "typescript": "5.7.3"
   },
   "dependencies": {
-    "@effect/platform": "^0.77.0",
-    "@effect/platform-bun": "^0.57.0",
-    "effect": "3.13.0",
-    "hono": "^4.7.0"
+    "@effect/experimental": "^0.41.2",
+    "@effect/platform": "^0.77.2",
+    "@effect/platform-bun": "^0.57.2",
+    "effect": "3.13.2",
+    "hono": "^4.7.1"
   },
   "workspaces": [
     "packages/*"

@@ -14,13 +14,13 @@
     "typescript": "5.7.3"
   },
   "dependencies": {
-    "@effect/sql-drizzle": "^0.29.0",
+    "@effect/sql-drizzle": "^0.29.2",
     "@libsql/client": "^0.14.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.39.3",
     "drizzle-valibot": "^0.4.0",
-    "effect": "3.13.0",
-    "valibot": "^1.0.0-rc.0"
+    "effect": "3.13.2",
+    "valibot": "^1.0.0-rc.1"
   }
 }
