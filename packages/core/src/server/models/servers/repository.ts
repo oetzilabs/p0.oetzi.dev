@@ -1,7 +1,7 @@
 import { eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
-import { Database, DatabaseLive } from "../../db";
-import { servers } from "../../db/schema";
+import { Database, DatabaseLive } from "../../../db";
+import { servers } from "../../../db/schema";
 import {
   ServerAlreadyDeleted,
   ServerAlreadyExists,

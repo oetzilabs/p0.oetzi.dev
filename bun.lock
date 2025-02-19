@@ -13,6 +13,9 @@
     "packages/core": {
       "name": "@p0/core",
       "dependencies": {
+        "@effect/experimental": "^0.41.2",
+        "@effect/platform": "^0.77.2",
+        "@effect/platform-bun": "^0.57.2",
         "@effect/sql-drizzle": "^0.29.2",
         "@libsql/client": "^0.14.0",
         "@paralleldrive/cuid2": "^2.2.2",

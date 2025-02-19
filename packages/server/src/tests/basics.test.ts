@@ -1,7 +1,7 @@
 import { Path } from "@effect/platform";
 import { assert, beforeAll, describe, it } from "@effect/vitest";
 import { Database, DatabaseLive } from "@p0/core/src/db";
-import { ServerRepository } from "@p0/core/src/entities/server/repository";
+import { ServerRepository } from "@p0/core/src/entities/servers/repository";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { Config, Effect } from "effect";
 import { existsSync, unlinkSync, writeFileSync } from "node:fs";
