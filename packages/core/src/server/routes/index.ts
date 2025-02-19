@@ -3,7 +3,7 @@ import { Effect, Layer, pipe, Redacted } from "effect";
 import { AuthorizationLive } from "../middlewares/authorization";
 import { ServerRepository } from "../models/servers/repository";
 import { SessionRepository } from "../models/sessions/repository";
-import { AuthGroup, BearerApiSecurity } from "./auth";
+import { SessionGroup, BearerApiSecurity } from "./sessions";
 import { ServersGroup } from "./servers";
 import { ActorRepository } from "../models/actors/repository";
 import { ActorsGroup } from "./actors";
@@ -11,7 +11,7 @@ import { ActorsGroup } from "./actors";
 export const AllApis = HttpApi.make("AllApis")
   // add the groups
   .add(ServersGroup)
-  .add(AuthGroup)
+  .add(SessionGroup)
   .add(ActorsGroup);
 
 // implement the `Servers` group
@@ -29,9 +29,9 @@ export const ServerApiLive = HttpApiBuilder.group(AllApis, "Servers", (handlers)
 ).pipe(Layer.provide(ServerRepository.Default), Layer.provide(AuthorizationLive));
 
 // implement the `Auth` group
-export const AuthApiLive = HttpApiBuilder.group(AllApis, "Auth", (handlers) =>
+export const SessionApiLive = HttpApiBuilder.group(AllApis, "Session", (handlers) =>
   Effect.gen(function* (_) {
-    yield* Effect.log("creating AuthApiLive");
+    yield* Effect.log("creating SessionApiLive");
     const session_repo = yield* _(SessionRepository);
     return handlers
       .handle("listAllSessions", () => session_repo.all)
@@ -63,6 +63,6 @@ export const ActorsApiLive = HttpApiBuilder.group(AllApis, "Actors", (handlers) 
 
 export const AllApisLive = HttpApiBuilder.api(AllApis).pipe(
   Layer.provide(ServerApiLive),
-  Layer.provide(AuthApiLive),
+  Layer.provide(SessionApiLive),
   Layer.provide(ActorsApiLive)
 );

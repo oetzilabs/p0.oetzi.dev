@@ -1,5 +1,6 @@
 import { eq, isNull } from "drizzle-orm";
-import { Effect, Redacted } from "effect";
+import { Effect } from "effect";
+import * as crypto from "node:crypto";
 import { Database, DatabaseLive } from "../../../db";
 import { actors, sessions } from "../../../db/schema";
 import {
@@ -10,8 +11,6 @@ import {
   SessionNotFound,
 } from "./errors";
 import { CreateSessionSchema, RemoveSessionSchema } from "./schemas";
-import * as crypto from "node:crypto";
-import { HttpApiBuilder, HttpApiSecurity } from "@effect/platform";
 
 export class SessionRepository extends Effect.Service<SessionRepository>()("@p0/core/session/repo", {
   effect: Effect.gen(function* (_) {

@@ -21,7 +21,7 @@ const SessionIdParam = HttpApiSchema.param("session_id", Schema.String);
 
 export class UnknownException extends Schema.TaggedError<UnknownException>()("UnknownException", {}) {}
 
-export const AuthGroup = HttpApiGroup.make("Auth")
+export const SessionGroup = HttpApiGroup.make("Session")
   .add(
     HttpApiEndpoint.get("listAllSessions")`/all`
       .addError(UnknownException, { status: 500 })
@@ -87,7 +87,7 @@ export const AuthGroup = HttpApiGroup.make("Auth")
       )
       .middleware(Authorization)
   )
-  .prefix("/auth");
+  .prefix("/sessions");
 
 // Define the API
-export const AuthApi = HttpApi.make("AuthApi").add(AuthGroup);
+export const SessionApi = HttpApi.make("SessionApi").add(SessionGroup);

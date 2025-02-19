@@ -37,7 +37,7 @@ export const AuthorizationLive = Layer.effect(
       // The Bearer token is redacted for security
       actor_bearer: (bearerToken) =>
         Effect.gen(function* () {
-          yield* Effect.log("checking bearer token", Redacted.value(bearerToken));
+          // yield* Effect.log("checking bearer token", Redacted.value(bearerToken));
           const user = yield* repo.find_by_bearer_token(Redacted.value(bearerToken)).pipe(
             Effect.catchTags({
               ActorNotFound: () => Effect.fail(new Unauthorized()),
