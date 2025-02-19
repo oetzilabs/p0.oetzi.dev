@@ -18,4 +18,4 @@ bun run index.ts
 
 - [x] List of Servers
 - [x] Sessions and Actors
-- [] Using `@effect/cluster` for sharding and load balancing accross servers
+- [ ] Using `@effect/cluster` for sharding and load balancing accross servers
