@@ -88,6 +88,3 @@ export const ServersGroup = HttpApiGroup.make("Servers")
   )
   .middleware(Authorization)
   .prefix("/servers");
-
-// Define the API
-export const ServersApi = HttpApi.make("AllApi").add(ServersGroup);

@@ -94,6 +94,3 @@ export const ActorsGroup = HttpApiGroup.make("Actors")
       .middleware(Authorization)
   )
   .prefix("/actors");
-
-// Define the API
-export const ActorsApi = HttpApi.make("AllApi").add(ActorsGroup);

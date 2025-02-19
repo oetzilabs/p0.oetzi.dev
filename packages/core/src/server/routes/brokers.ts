@@ -87,6 +87,3 @@ export const BrokersGroup = HttpApiGroup.make("Brokers")
   )
   .middleware(Authorization)
   .prefix("/brokers");
-
-// Define the API
-export const BrokersApi = HttpApi.make("AllApi").add(BrokersGroup);

@@ -5,9 +5,10 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
-    "jsx": "react-jsx",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
     "allowJs": true,
-    "types": ["@types/bun"],
+    "types": ["@types/bun", "solid-js/jsx-runtime"],
 
     // Bundler mode
     "moduleResolution": "bundler",

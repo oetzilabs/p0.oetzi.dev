@@ -1,16 +1,19 @@
-import { HttpApi, HttpApiBuilder } from "@effect/platform";
-import { Effect, Layer, pipe, Redacted } from "effect";
+import { HttpApi, HttpApiBuilder, HttpServerResponse, Path } from "@effect/platform";
+import { NotFound } from "@effect/platform/HttpApiError";
+import { Effect, Layer } from "effect";
 import { AuthorizationLive } from "../middlewares/authorization";
+import { ActorRepository } from "../models/actors/repository";
+import { BrokerRepository } from "../models/brokers/repository";
 import { ServerRepository } from "../models/servers/repository";
 import { SessionRepository } from "../models/sessions/repository";
-import { SessionGroup, BearerApiSecurity } from "./sessions";
-import { ServersGroup } from "./servers";
-import { ActorRepository } from "../models/actors/repository";
 import { ActorsGroup } from "./actors";
 import { BrokersGroup } from "./brokers";
-import { BrokerRepository } from "../models/brokers/repository";
+import { PagesGroup } from "./pages";
+import { ServersGroup } from "./servers";
+import { BearerApiSecurity, SessionGroup } from "./sessions";
 
 export const AllApis = HttpApi.make("AllApis")
+  .add(PagesGroup)
   // add the groups
   .add(ServersGroup)
   .add(SessionGroup)
@@ -77,7 +80,65 @@ export const BrokersApiLive = HttpApiBuilder.group(AllApis, "Brokers", (handlers
   })
 ).pipe(Layer.provide(BrokerRepository.Default), Layer.provide(AuthorizationLive));
 
+// const get_asset = (file: string) =>
+//   Effect.gen(function* (_) {
+//     const path = yield* _(Path.Path);
+//     const fs = yield* _(FileSystem.FileSystem);
+//     const current_dir = process.cwd();
+//     yield* Effect.log(`current dir ${current_dir}`);
+//     let file_path = path.join(current_dir, `packages/core/src/server/pages/${file}`);
+//     const path_has_extension = file_path.split(".").length > 1;
+//     if (!path_has_extension) {
+//       file_path += ".html";
+//     }
+
+//     const exist = yield* fs.exists(file_path);
+//     yield* Effect.log(`checking if file ${file_path} exists`);
+//     if (!exist) {
+//       yield* Effect.fail(new PageNotFound({ route: file }));
+//     }
+//     const asset = yield* fs.readFile(file_path);
+//     return yield* Effect.succeed({ asset, file_path });
+//   }).pipe(Effect.provide(BunContext.layer));
+
+export const PagesApiLive = HttpApiBuilder.group(AllApis, "Pages", (handlers) =>
+  Effect.gen(function* (_) {
+    const path = yield* _(Path.Path);
+    yield* Effect.log("creating PagesApiLive");
+    const current_dir = process.cwd();
+
+    return handlers
+      .handleRaw("file", (params) =>
+        Effect.gen(function* () {
+          let file_path = path.join(current_dir, `packages/core/src/server/pages/${params.path["file"]}`);
+          yield* Effect.log(`file path ${file_path}`);
+          return yield* HttpServerResponse.file(file_path).pipe(
+            Effect.catchTags({
+              // PageNotFound: () => Effect.fail(new NotFound()),
+              SystemError: () => Effect.fail(new NotFound()),
+              BadArgument: () => Effect.fail(new NotFound()),
+            })
+          );
+        })
+      )
+      .handleRaw("asset", (params) =>
+        Effect.gen(function* () {
+          let file_path = path.join(current_dir, `packages/core/src/server/pages/assets/${params.path["file"]}`);
+          yield* Effect.log(`file path ${file_path}`);
+          return yield* HttpServerResponse.file(file_path).pipe(
+            Effect.catchTags({
+              // PageNotFound: () => Effect.fail(new NotFound()),
+              SystemError: () => Effect.fail(new NotFound()),
+              BadArgument: () => Effect.fail(new NotFound()),
+            })
+          );
+        })
+      );
+  })
+);
+
 export const AllApisLive = HttpApiBuilder.api(AllApis).pipe(
+  Layer.provide(PagesApiLive),
   Layer.provide(ServerApiLive),
   Layer.provide(BrokersApiLive),
   Layer.provide(SessionApiLive),

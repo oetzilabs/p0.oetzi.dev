@@ -88,6 +88,3 @@ export const SessionGroup = HttpApiGroup.make("Session")
       .middleware(Authorization)
   )
   .prefix("/sessions");
-
-// Define the API
-export const SessionApi = HttpApi.make("SessionApi").add(SessionGroup);
