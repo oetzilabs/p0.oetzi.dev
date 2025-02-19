@@ -50,6 +50,20 @@
       "when": 1739959746121,
       "tag": "0006_tranquil_vance_astro",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1739977010221,
+      "tag": "0007_big_fenris",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1739977152698,
+      "tag": "0008_freezing_korg",
+      "breakpoints": true
     }
   ]
 }
