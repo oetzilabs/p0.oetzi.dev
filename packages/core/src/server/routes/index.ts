@@ -40,7 +40,7 @@ export const SessionApiLive = HttpApiBuilder.group(AllApis, "Session", (handlers
       .handle("createSession", (params) =>
         Effect.gen(function* (_) {
           const sc = yield* session_repo.create(params.payload);
-          yield* HttpApiBuilder.securitySetCookie(BearerApiSecurity, Redacted.make(sc.bearer_token));
+          yield* HttpApiBuilder.securitySetCookie(BearerApiSecurity, sc.bearer_token);
           return sc;
         })
       );

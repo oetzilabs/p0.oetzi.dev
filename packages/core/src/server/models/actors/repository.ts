@@ -11,7 +11,7 @@ import {
   ActorNotCreated,
   ActorAlreadyExists,
 } from "./errors";
-import type { CreateActorSchema, RemoveActorSchema } from "./schemas";
+import type { CreateActorSchema, FindActorByNameSchema, RemoveActorSchema } from "./schemas";
 
 // Define a schema for the "User"
 export class Actor extends Schema.Class<Actor>("@p0/core/actor")({ id: Schema.String }) {}
@@ -37,6 +37,16 @@ export class ActorRepository extends Effect.Service<ActorRepository>()("@p0/core
 
         if (_actors.length !== 1) return yield* Effect.fail(new ActorNotCreated());
 
+        return yield* Effect.succeed(_actors[0]);
+      });
+
+    const find_by_name = (name: typeof FindActorByNameSchema.Type) =>
+      Effect.gen(function* (_) {
+        const get_actor = Effect.tryPromise(() =>
+          db.select().from(actors).where(eq(actors.name, name)).limit(1).execute()
+        );
+        const _actors = yield* get_actor;
+        if (_actors.length !== 1) return yield* Effect.fail(new ActorNotFound());
         return yield* Effect.succeed(_actors[0]);
       });
 
@@ -113,6 +123,7 @@ export class ActorRepository extends Effect.Service<ActorRepository>()("@p0/core
       all,
       find_by_id,
       find_by_bearer_token,
+      find_by_name,
     } as const;
   }),
   dependencies: [DatabaseLive],

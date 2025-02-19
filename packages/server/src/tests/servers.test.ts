@@ -1,7 +1,7 @@
 import { Path } from "@effect/platform";
 import { assert, beforeAll, describe, it } from "@effect/vitest";
 import { Database, DatabaseLive } from "@p0/core/src/db";
-import { ServerRepository } from "@p0/core/src/entities/servers/repository";
+import { ServerRepository } from "@p0/core/src/server/models/servers/repository";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { Config, Effect } from "effect";
 import { existsSync, unlinkSync, writeFileSync } from "node:fs";
@@ -44,9 +44,9 @@ describe("Servers", () => {
         name: "test",
         url: "test",
       });
-
-      assert.strictEqual(server.name, "test");
-      assert.strictEqual(server.url, "test");
+      assert.isNotNull(server);
+      assert.strictEqual(server!.name, "test");
+      assert.strictEqual(server!.url, "test");
     }).pipe(Effect.provide(ServerRepository.Default))
   );
 
@@ -57,9 +57,11 @@ describe("Servers", () => {
         name: "test",
         url: "test",
       });
-      const found_server = yield* server_repo.find_by_id(server.id);
-      assert.strictEqual(found_server.name, "test");
-      assert.strictEqual(found_server.url, "test");
+      assert.isNotNull(server);
+      const found_server = yield* server_repo.find_by_id(server!.id);
+      assert.isNotNull(found_server);
+      assert.strictEqual(found_server!.name, "test");
+      assert.strictEqual(found_server!.url, "test");
       const all_servers = yield* server_repo.all;
       assert.strictEqual(all_servers.length, 1);
     }).pipe(Effect.provide(ServerRepository.Default))
@@ -72,9 +74,11 @@ describe("Servers", () => {
         name: "test",
         url: "test",
       });
-      const found_server = yield* server_repo.find_by_id(server.id);
-      assert.strictEqual(found_server.name, "test");
-      assert.strictEqual(found_server.url, "test");
+      assert.isNotNull(server);
+      const found_server = yield* server_repo.find_by_id(server!.id);
+      assert.isNotNull(found_server);
+      assert.strictEqual(found_server!.name, "test");
+      assert.strictEqual(found_server!.url, "test");
       const all_servers = yield* server_repo.all_non_deleted;
       assert.strictEqual(all_servers.length, 1);
     }).pipe(Effect.provide(ServerRepository.Default))
@@ -107,8 +111,9 @@ describe("Servers", () => {
       assert.isNotNull(server);
 
       const removed_server = yield* server_repo.remove(server!.id);
-      assert.strictEqual(removed_server.name, "test");
-      assert.strictEqual(removed_server.url, "test");
+      assert.isNotNull(removed_server);
+      assert.strictEqual(removed_server!.name, "test");
+      assert.strictEqual(removed_server!.url, "test");
     }).pipe(Effect.provide(ServerRepository.Default))
   );
 });

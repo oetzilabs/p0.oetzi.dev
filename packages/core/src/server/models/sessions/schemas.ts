@@ -8,7 +8,7 @@ export const RemoveSessionSchema = Schema.String;
 export const SessionSchema = Schema.Struct({
   id: Schema.String,
   actor_id: Schema.String,
-  bearer_token: Schema.String,
+  bearer_token: Schema.Redacted(Schema.String),
   createdAt: Schema.DateFromString,
   updatedAt: Schema.NullOr(Schema.DateFromString),
   deletedAt: Schema.NullOr(Schema.DateFromString),
