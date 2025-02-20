@@ -11,6 +11,7 @@ import { BrokersGroup } from "./brokers";
 import { PagesGroup } from "./pages";
 import { ServersGroup } from "./servers";
 import { BearerApiSecurity, SessionGroup } from "./sessions";
+import { catchAll } from "@effect/platform/HttpRouter";
 
 export const AllApis = HttpApi.make("AllApis")
   .add(PagesGroup)
@@ -80,27 +81,6 @@ export const BrokersApiLive = HttpApiBuilder.group(AllApis, "Brokers", (handlers
   })
 ).pipe(Layer.provide(BrokerRepository.Default), Layer.provide(AuthorizationLive));
 
-// const get_asset = (file: string) =>
-//   Effect.gen(function* (_) {
-//     const path = yield* _(Path.Path);
-//     const fs = yield* _(FileSystem.FileSystem);
-//     const current_dir = process.cwd();
-//     yield* Effect.log(`current dir ${current_dir}`);
-//     let file_path = path.join(current_dir, `packages/core/src/server/pages/${file}`);
-//     const path_has_extension = file_path.split(".").length > 1;
-//     if (!path_has_extension) {
-//       file_path += ".html";
-//     }
-
-//     const exist = yield* fs.exists(file_path);
-//     yield* Effect.log(`checking if file ${file_path} exists`);
-//     if (!exist) {
-//       yield* Effect.fail(new PageNotFound({ route: file }));
-//     }
-//     const asset = yield* fs.readFile(file_path);
-//     return yield* Effect.succeed({ asset, file_path });
-//   }).pipe(Effect.provide(BunContext.layer));
-
 export const PagesApiLive = HttpApiBuilder.group(AllApis, "Pages", (handlers) =>
   Effect.gen(function* (_) {
     const path = yield* _(Path.Path);
@@ -108,7 +88,7 @@ export const PagesApiLive = HttpApiBuilder.group(AllApis, "Pages", (handlers) =>
     const current_dir = process.cwd();
 
     return handlers
-      .handleRaw("file", (params) =>
+      .handle("file", (params) =>
         Effect.gen(function* () {
           let file_path = path.join(current_dir, `packages/core/src/server/pages/${params.path["file"]}`);
           yield* Effect.log(`file path ${file_path}`);

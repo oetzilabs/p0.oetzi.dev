@@ -3,6 +3,7 @@
   "module": "src/index.ts",
   "type": "module",
   "devDependencies": {
+    "@tsconfig/node22": "22.0.0",
     "@types/bun": "latest"
   },
   "peerDependencies": {

@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { NotFound } from "@effect/platform/HttpApiError";
 import { Schema } from "effect";
 
@@ -24,3 +24,13 @@ export const PagesGroup = HttpApiGroup.make("Pages")
       .addSuccess(Schema.Any)
   )
   .prefix("/pages");
+
+// export const PagesRouter = HttpRouter.empty.pipe(
+//   HttpRouter.all(
+//     "*",
+//     // @ts-ignore
+//     Effect.map(HttpServerRequest.HttpServerRequest, (req) =>
+//       HttpServerResponse.file(join(process.cwd(), `packages/core/src/server/pages/${req.url}`))
+//     )
+//   )
+// );
