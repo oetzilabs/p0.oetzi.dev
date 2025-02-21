@@ -1,6 +1,10 @@
 import { Command, Path } from "@effect/platform";
-import type { ProcessId } from "@effect/platform/CommandExecutor";
+import type { ProcessId, Process as ProcessType } from "@effect/platform/CommandExecutor";
 import { Effect, Ref, Stream, Match, Layer, Duration, Console, pipe, Option } from "effect";
+
+class ExitError extends Error {
+  readonly _tag = "ExitError";
+}
 
 const ProcessStatus = {
   running: "running",
@@ -12,6 +16,8 @@ interface Process {
   id: ProcessId;
   name: string;
   status: (typeof ProcessStatus)[keyof typeof ProcessStatus];
+  kill: ProcessType["kill"];
+  output: string;
 }
 
 const FocusableComponents = {
@@ -25,17 +31,21 @@ export type Project = {
   path: string;
   dev?: boolean | undefined;
   command?: [string, ...string[]] | string;
+  start_automatically?: boolean | undefined;
 };
 
 interface AppState {
   projects: Project[];
   processes: Process[];
+  currentProject: Option.Option<Project>;
   selectedProcessId: Option.Option<ProcessId>;
   output: string;
+  processOutput: Record<ProcessId, string>;
   errors: { timestamp: Date; message: string }[];
   searchQuery: string;
   showHelp: boolean;
   focusedComponent: (typeof FocusableComponents)[keyof typeof FocusableComponents];
+  running: boolean;
 }
 
 export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo", {
@@ -43,12 +53,15 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
     const initialState: AppState = {
       projects: [],
       processes: [],
+      currentProject: Option.none(),
       selectedProcessId: Option.none(),
       output: "",
+      processOutput: {},
       errors: [],
       searchQuery: "",
       showHelp: false,
       focusedComponent: "sidebar",
+      running: true,
     };
     const state_ref = yield* _(Ref.make(initialState));
 
@@ -77,22 +90,45 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
 
     const build_layout = Effect.gen(function* (_) {
       const state = yield* Ref.get(state_ref);
+
       const sidebarWidth = 20;
-      const outputWidth = 60;
       const errorWidth = 20;
+      const outputWidth = process.stdout.columns - (sidebarWidth + errorWidth + 4);
       const selected = state.selectedProcessId;
 
       // Build Sidebar Content
       let sidebarContent = "";
       if (Option.isNone(selected)) {
-        sidebarContent = state.processes.map((p) => p.name).join("\n");
+        sidebarContent = state.projects
+          .map((p) => {
+            return p.name;
+          })
+          .join("\n");
       } else {
         const sId = yield* state.selectedProcessId;
-        sidebarContent = state.processes.map((p) => p.name + (sId === p.id ? " *" : "")).join("\n");
+        sidebarContent = state.projects
+          .map((p) => {
+            const _process = state.processes.find((p) => p.name === p.name);
+            if (!_process) return p.name;
+            return p.name + (sId === _process.id ? " *" : "");
+          })
+          .join("\n");
       }
 
       // Build Output Content
-      const outputContent = state.output;
+      let outputContent = "";
+      if (state.processes.length === 0) outputContent = state.output;
+      if (Option.isNone(selected)) {
+        const _p = state.processes[0];
+        if (_p) {
+          const index = _p.id;
+          const o = state.processOutput[index];
+          outputContent = `PID: none\n${o}`;
+        }
+      } else {
+        const sId = yield* state.selectedProcessId;
+        outputContent = `PID: ${sId}\n${state.processOutput[sId]}`;
+      }
 
       // Build Errors Content
       const errorsContent = state.errors.map((e) => `${e.timestamp.toLocaleTimeString()} ${e.message}`).join("\n");
@@ -107,13 +143,14 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
       const errorLines = errorsContent.split("\n");
 
       const maxLines = Math.max(sidebarLines.length, outputLines.length, errorLines.length);
+      const console_height = process.stdout.rows - (maxLines + 2);
 
       let layout = "";
 
       // Add Borders to the layout
       layout += `|${sidebarBorder}|${outputBorder}|${errorBorder}|\n`;
 
-      for (let i = 0; i < maxLines; i++) {
+      for (let i = 0; i < console_height; i++) {
         const sidebarLine = sidebarLines[i] || "".padEnd(sidebarWidth);
         const outputLine = outputLines[i] || "".padEnd(outputWidth);
         const errorLine = errorLines[i] || "".padEnd(errorWidth);
@@ -133,8 +170,10 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
           return Match.value(key).pipe(
             // quit the program
             Match.when("q", () => {
-              process.exit(0);
-              return state; // Unreachable, but needed for type checking
+              // Attempt to gracefully shutdown processes before exiting
+              state.processes.forEach((p) => p.kill("SIGTERM"));
+
+              return { ...state, running: false }; // Unreachable, but needed for type checking
             }), // refresh the screen
             Match.when("r", () => {
               return state;
@@ -238,39 +277,47 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
 
         const com = Command.make(..._command);
         const stream = Command.streamLines(com, "utf8");
-        stream.pipe(Stream.flatMap((line) => Effect.sync(() => console.log(line))));
 
-        // Capture the stream and update the state
-        yield* _(
-          stream.pipe(
-            Stream.runForEach((line) =>
-              Ref.update(state_ref, (state) => ({
-                ...state,
-                output: state.output + line + "\n", // Append new line to existing output
-              }))
-            )
-          ),
-          Effect.fork
-        ); // Run stream processing in the background
-
-        yield* pipe(
+        const _process = yield* pipe(
           // Start running the command and return a handle to the running process
           Command.start(com),
-          Effect.flatMap((process) =>
-            Ref.update(state_ref, (state) => ({
-              ...state,
-              processes: [
-                ...state.processes,
-                {
-                  id: process.pid,
-                  name: project.name,
-                  status: ProcessStatus.running,
-                },
-              ],
-              selectedProcessId: Option.some(process.pid),
-            }))
-          )
+          Effect.flatMap((_process) => {
+            // Capture the stream and update the state
+            return Effect.gen(function* () {
+              yield* _(
+                stream.pipe(
+                  Stream.runForEach((line) =>
+                    Ref.update(state_ref, (state) => ({
+                      ...state,
+                      processOutput: {
+                        ...state.processOutput,
+                        [_process.pid]: (state.processOutput[_process.pid] ?? "") + line + "\n",
+                      },
+                    }))
+                  )
+                ),
+                // Run stream processing in the background
+                Effect.fork
+              );
+              return _process;
+            });
+          })
         );
+        yield* Ref.update(state_ref, (state) => ({
+          ...state,
+          processes: [
+            ...state.processes,
+            {
+              id: _process.pid,
+              name: project.name,
+              status: ProcessStatus.running,
+              kill: _process.kill,
+              output: "",
+            },
+          ],
+          selectedProcessId: Option.some(_process.pid),
+        }));
+
         yield* update(`Tracking Project ${project.name}`);
       });
 
@@ -279,16 +326,28 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
         const state = yield* _(Ref.get(state_ref));
         const _project = state.projects.find((p) => p.name === project.name);
         if (_project) {
-          yield* update(`Project ${project.name} already running`);
           return;
         }
 
         yield* _(track_project(project));
       });
 
+    const register_project = (project: Project) =>
+      Effect.gen(function* (_) {
+        yield* Ref.update(state_ref, (state) => ({
+          ...state,
+          projects: [...state.projects, project],
+        }));
+      });
+
     const peak = Effect.gen(function* (_) {
       const state = yield* Ref.get(state_ref);
       return state.processes;
+    });
+
+    const isRunning = Effect.gen(function* (_) {
+      const state = yield* Ref.get(state_ref);
+      return state.running;
     });
 
     return {
@@ -302,6 +361,8 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
       setState,
       launch_project,
       peak,
+      register_project,
+      isRunning,
     } as const;
   }),
   dependencies: [], // Remove BunT.layer dependency
@@ -315,16 +376,41 @@ export type TerminalProgramInput = {
 export const TerminalProgram = (input: TerminalProgramInput) =>
   Effect.gen(function* (_) {
     const terminal = yield* _(Terminal);
-    yield* _(Effect.forkDaemon(terminal.runTUI)); // Run input handling in the background
 
-    for (const project of input.projects) {
-      yield* terminal.launch_project(project);
-    }
+    // Run input handling in the background
+    yield* _(Effect.forkDaemon(terminal.runTUI));
 
-    while (true) {
-      const layout = yield* terminal.build_layout;
-      yield* _(terminal.update(layout));
-      yield* _(terminal.render());
-      yield* _(Effect.sleep(Duration.millis(1000 / 60)));
-    }
+    yield* Effect.forEach(
+      input.projects.filter((p) => p.start_automatically ?? false),
+      (project) => terminal.launch_project(project)
+    );
+
+    yield* Effect.forEach(
+      input.projects.filter((p) => !(p.start_automatically ?? false)),
+      (project) => terminal.register_project(project)
+    );
+
+    yield* Effect.loop(undefined, {
+      while: () => true,
+      body: (b) =>
+        Effect.gen(function* (_) {
+          const layout = yield* terminal.build_layout;
+          const running = yield* terminal.isRunning;
+          if (!running) {
+            yield* _(terminal.update("Exiting..."));
+            yield* _(Effect.sleep(Duration.millis(200)));
+            yield* _(terminal.update(""));
+            process.exit(0);
+            // return yield* Effect.fail(new ExitError());
+          }
+          yield* _(terminal.update(layout));
+          yield* _(terminal.render());
+          yield* _(Effect.sleep(Duration.millis(1000 / 60)));
+        }),
+      step: () => undefined,
+    }).pipe(
+      Effect.catchTags({
+        // ExitError: () => Effect.succeed(undefined),
+      })
+    );
   }).pipe(Effect.provide(Terminal.Default));

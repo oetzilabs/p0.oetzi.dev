@@ -5,13 +5,8 @@ const terminal = terminal_launcher({
   projects: [
     {
       name: "http_server",
-      path: "packages/server",
-      command: "echo 'hello world'",
-    },
-    {
-      name: "http_server2",
-      path: "packages/server",
-      command: "echo '222'",
+      path: "packages/server/src",
+      start_automatically: true,
     },
   ],
 });
