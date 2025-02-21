@@ -1,9 +1,9 @@
 {
-  "name": "@p0/server",
-  "module": "src/http_api.ts",
+  "name": "@p0/terminal",
+  "module": "src/index.ts",
   "type": "module",
   "exports": [
-    "./src/http_api.ts"
+    "./src/index.ts"
   ],
   "devDependencies": {
     "@effect/language-service": "^0.2.0",

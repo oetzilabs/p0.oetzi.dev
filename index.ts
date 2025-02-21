@@ -1,3 +1,17 @@
-import { http_api_launcher } from "@p0/server/src/http_api";
+import { terminal_launcher } from "@p0/terminal";
 
-const http_api = http_api_launcher();
+const terminal = terminal_launcher({
+  name: "asdf",
+  projects: [
+    {
+      name: "http_server",
+      path: "packages/server",
+      command: "echo 'hello world'",
+    },
+    {
+      name: "http_server2",
+      path: "packages/server",
+      command: "echo '222'",
+    },
+  ],
+});
