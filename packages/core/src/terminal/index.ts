@@ -400,6 +400,7 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
             yield* _(terminal.update("Exiting..."));
             yield* _(Effect.sleep(Duration.millis(200)));
             yield* _(terminal.update(""));
+            process.stdin.setRawMode(false);
             process.exit(0);
             // return yield* Effect.fail(new ExitError());
           }
