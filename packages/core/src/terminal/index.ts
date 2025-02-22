@@ -105,18 +105,14 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
       // Build Sidebar Content
       let sidebarContent = "";
       if (Option.isNone(selected)) {
-        sidebarContent = state.projects
-          .map((p) => {
-            return p.name;
-          })
-          .join("\n");
+        sidebarContent = state.processes.map((p) => p.name).join("\n");
       } else {
         const sId = yield* state.selectedProcessId;
         sidebarContent = state.projects
-          .map((p) => {
-            const _process = state.processes.find((p) => p.name === p.name);
-            if (!_process) return p.name;
-            return p.name + (sId === _process.id ? " *" : "");
+          .map((pj) => {
+            const _process = state.processes.find((p) => p.name === pj.name);
+            if (!_process) return pj.name;
+            return _process.name + (sId === _process.id ? " *" : "");
           })
           .join("\n");
       }
@@ -140,9 +136,9 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
       const errorsContent = state.errors.map((e) => `${e.timestamp.toLocaleTimeString()} ${e.message}`).join("\n");
 
       // Create Borders
-      const sidebarBorder = "=".repeat(sidebarWidth);
-      const outputBorder = "=".repeat(outputWidth);
-      const errorBorder = "=".repeat(errorWidth);
+      const sidebarBorder = "━".repeat(sidebarWidth);
+      const outputBorder = "━".repeat(outputWidth);
+      const errorBorder = "━".repeat(errorWidth);
 
       const sidebarLines = sidebarContent.split("\n");
       const outputLines = outputContent.split("\n");
@@ -154,18 +150,18 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
       let layout = "";
 
       // Add Borders to the layout
-      layout += `|${sidebarBorder}|${outputBorder}|${errorBorder}|\n`;
+      layout += `┏${sidebarBorder}┳${outputBorder}┳${errorBorder}┓\n`;
 
       for (let i = 0; i < console_height; i++) {
         const sidebarLine = sidebarLines[i] || "".padEnd(sidebarWidth);
         const outputLine = outputLines[i] || "".padEnd(outputWidth);
         const errorLine = errorLines[i] || "".padEnd(errorWidth);
 
-        layout += `|${sidebarLine.padEnd(sidebarWidth)}|${outputLine.padEnd(outputWidth)}|${errorLine.padEnd(
+        layout += `┃${sidebarLine.padEnd(sidebarWidth)}┃${outputLine.padEnd(outputWidth)}┃${errorLine.padEnd(
           errorWidth
-        )}|\n`;
+        )}┃\n`;
       }
-      layout += `|${sidebarBorder}|${outputBorder}|${errorBorder}|\n`;
+      layout += `┗${sidebarBorder}┻${outputBorder}┻${errorBorder}┛\n`;
 
       return layout;
     });
@@ -410,23 +406,35 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
       input.projects.filter((p) => !(p.start_automatically ?? false)),
       (project) => terminal.register_project(project)
     );
+    const looper = Effect.loop(undefined, {
+      while: () => true,
+      body: (b) =>
+        Effect.gen(function* (_) {
+          const layout = yield* terminal.build_layout;
+          yield* terminal.update(layout);
+          yield* terminal.render();
+          yield* Effect.sleep(Duration.millis(1000 / 60));
+        }),
+      step: () => undefined,
+    });
+    yield* _(Effect.forkDaemon(looper));
 
     yield* Effect.loop(undefined, {
       while: () => true,
       body: (b) =>
         Effect.gen(function* (_) {
-          const layout = yield* terminal.build_layout;
           const running = yield* terminal.isRunning;
           if (!running) {
             const ps = yield* terminal.peak;
-            yield* _(Effect.forEach(ps, (p) => p.kill("SIGTERM")));
+            yield* Effect.forEach(ps, (p) => p.kill("SIGTERM"));
+            // remove all processes from the state
+            yield* Ref.update(terminal.state_ref, (state) => ({ ...state, processes: [], output: "" }));
+            yield* Effect.sleep(Duration.millis(100));
             process.stdin.setRawMode(false);
             process.exit(0);
             // return yield* Effect.fail(new ExitError());
           }
-          yield* _(terminal.update(layout));
-          yield* _(terminal.render());
-          yield* _(Effect.sleep(Duration.millis(1000 / 60)));
+          yield* _(Effect.sleep(Duration.millis(10)));
         }),
       step: () => undefined,
     }).pipe(
