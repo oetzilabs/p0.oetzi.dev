@@ -40,7 +40,13 @@ interface AppState {
   currentProject: Option.Option<Project>;
   selectedProcessId: Option.Option<ProcessId>;
   output: string;
-  processOutput: Record<ProcessId, string>;
+  processOutput: Record<
+    ProcessId,
+    {
+      stdout: string;
+      stderr: string;
+    }
+  >;
   errors: { timestamp: Date; message: string }[];
   searchQuery: string;
   showHelp: boolean;
@@ -122,12 +128,12 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
         const _p = state.processes[0];
         if (_p) {
           const index = _p.id;
-          const o = state.processOutput[index];
+          const o = state.processOutput[index].stdout ?? "";
           outputContent = `PID: none\n${o}`;
         }
       } else {
         const sId = yield* state.selectedProcessId;
-        outputContent = `PID: ${sId}\n${state.processOutput[sId]}`;
+        outputContent = `PID: ${sId}\n${state.processOutput[sId]?.stdout ?? ""}`;
       }
 
       // Build Errors Content
@@ -169,12 +175,8 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
         return yield* Ref.update(state_ref, (state) => {
           return Match.value(key).pipe(
             // quit the program
-            Match.when("q", () => {
-              // Attempt to gracefully shutdown processes before exiting
-              state.processes.forEach((p) => p.kill("SIGTERM"));
-
-              return { ...state, running: false }; // Unreachable, but needed for type checking
-            }), // refresh the screen
+            Match.when("q", () => ({ ...state, running: false })),
+            // refresh the screen
             Match.when("r", () => {
               return state;
             }),
@@ -276,7 +278,7 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
         }
 
         const com = Command.make(..._command);
-        const stream = Command.streamLines(com, "utf8");
+        // const stream = Command.streamLines(com, "utf8");
 
         const _process = yield* pipe(
           // Start running the command and return a handle to the running process
@@ -285,13 +287,34 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
             // Capture the stream and update the state
             return Effect.gen(function* () {
               yield* _(
-                stream.pipe(
+                _process.stdout.pipe(
                   Stream.runForEach((line) =>
                     Ref.update(state_ref, (state) => ({
                       ...state,
                       processOutput: {
                         ...state.processOutput,
-                        [_process.pid]: (state.processOutput[_process.pid] ?? "") + line + "\n",
+                        [_process.pid]: {
+                          ...(state.processOutput[_process.pid] ?? {}),
+                          stdout: (state.processOutput[_process.pid]?.stdout ?? "") + line.toString() + "\n",
+                        },
+                      },
+                    }))
+                  )
+                ),
+                // Run stream processing in the background
+                Effect.fork
+              );
+              yield* _(
+                _process.stderr.pipe(
+                  Stream.runForEach((line) =>
+                    Ref.update(state_ref, (state) => ({
+                      ...state,
+                      processOutput: {
+                        ...state.processOutput,
+                        [_process.pid]: {
+                          ...(state.processOutput[_process.pid] ?? {}),
+                          stderr: (state.processOutput[_process.pid]?.stderr ?? "") + line.toString() + "\n",
+                        },
                       },
                     }))
                   )
@@ -317,8 +340,6 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
           ],
           selectedProcessId: Option.some(_process.pid),
         }));
-
-        yield* update(`Tracking Project ${project.name}`);
       });
 
     const launch_project = (project: Project) =>
@@ -329,7 +350,7 @@ export class Terminal extends Effect.Service<Terminal>()("@p0/core/terminal/repo
           return;
         }
 
-        yield* _(track_project(project));
+        yield* track_project(project);
       });
 
     const register_project = (project: Project) =>
@@ -397,9 +418,8 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
           const layout = yield* terminal.build_layout;
           const running = yield* terminal.isRunning;
           if (!running) {
-            yield* _(terminal.update("Exiting..."));
-            yield* _(Effect.sleep(Duration.millis(200)));
-            yield* _(terminal.update(""));
+            const ps = yield* terminal.peak;
+            yield* _(Effect.forEach(ps, (p) => p.kill("SIGTERM")));
             process.stdin.setRawMode(false);
             process.exit(0);
             // return yield* Effect.fail(new ExitError());
