@@ -175,3 +175,5 @@ dist
 .DS_Store
 db.sqlite
 db.test.sqlite
+
+log.jsonl
