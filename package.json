@@ -12,5 +12,8 @@
   "dependencies": {},
   "workspaces": [
     "packages/*"
+  ],
+  "trustedDependencies": [
+    "@parcel/watcher"
   ]
 }
