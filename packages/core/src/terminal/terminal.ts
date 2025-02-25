@@ -111,6 +111,8 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
 
             yield* logger.warn("kill", "Terminating processes");
             process.stdin.setRawMode(false);
+            process.stdout.write("\x1b[2J");
+            process.stdout.write("\x1b[0;0H");
             process.exit(0);
           }
           yield* _(Effect.sleep(Duration.millis(10)));
