@@ -15,14 +15,17 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
 
       const trackProject = (project: Project) =>
         Effect.gen(function* (_) {
-          let _command = ["bun", "run", `${path.join(cwd, project.path)}/index.ts`] as [string, ...string[]];
-          if (typeof project.command === "string") {
-            _command = project.command.split(" ") as [string, ...string[]];
-          } else if (Array.isArray(project.command)) {
-            _command = project.command;
+          let working_directory = path.join(cwd, project.path);
+          let _command = ["bun", "run", `${working_directory}/index.ts`] as [string, ...string[]];
+          if (project.command !== undefined) {
+            if (typeof project.command === "string") {
+              _command = project.command.split(" ") as [string, ...string[]];
+            } else if (Array.isArray(project.command)) {
+              _command = project.command;
+            }
           }
 
-          const com = Command.make(..._command);
+          const com = Command.make(..._command).pipe(Command.workingDirectory(working_directory));
 
           const _process = yield* pipe(
             // Start running the command and return a handle to the running process

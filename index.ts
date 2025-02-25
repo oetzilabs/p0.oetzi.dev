@@ -4,13 +4,13 @@ const terminal = terminal_launcher({
   name: "asdf",
   projects: [
     {
-      name: "hello_world_test",
-      path: "",
+      name: "solid_dashboard",
+      path: "packages/web",
       start_automatically: true,
-      command: ["echo", "hello"],
+      command: "bun dev",
     },
     {
-      name: "http_server",
+      name: "effect_ts_http_server",
       path: "packages/server/src",
       start_automatically: true,
     },
