@@ -113,6 +113,7 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
             process.stdin.setRawMode(false);
             process.stdout.write("\x1b[2J");
             process.stdout.write("\x1b[0;0H");
+            yield* logger.info("exit", "Exiting");
             process.exit(0);
           }
           yield* _(Effect.sleep(Duration.millis(10)));
@@ -123,7 +124,6 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
         // ExitError: () => Effect.succeed(undefined),
       })
     );
-    yield* logger.info("exit", "Exiting");
   }).pipe(
     Effect.provide(TerminalLive),
     Effect.provide(UIRendererLive),
