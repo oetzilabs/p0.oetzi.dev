@@ -1,17 +1,23 @@
-import { Effect, Option } from "effect";
+import { Effect, Option, SubscriptionRef } from "effect";
 import { AppStateService } from "./app_state";
 
 export class UIRendererService extends Effect.Service<UIRendererService>()("@p0/core/terminal/ui_renderer", {
   effect: Effect.gen(function* (_) {
     const appState = yield* _(AppStateService);
 
+    const last_rendererd = yield* SubscriptionRef.make("");
+
     const clear = Effect.sync(() => process.stdout.write("\x1b[2J"));
 
     const render = (layout: string) =>
-      Effect.sync(() => {
-        process.stdout.write("\x1b[2J");
-        process.stdout.write("\x1b[0;0H");
-        process.stdout.write(layout);
+      Effect.gen(function* (_) {
+        const lr = yield* SubscriptionRef.get(last_rendererd);
+        if (layout !== lr) {
+          process.stdout.write("\x1b[2J");
+          process.stdout.write("\x1b[0;0H");
+          process.stdout.write(layout);
+          yield* SubscriptionRef.update(last_rendererd, () => layout);
+        }
       });
 
     const build_layout = Effect.gen(function* (_) {
@@ -98,7 +104,7 @@ export class UIRendererService extends Effect.Service<UIRendererService>()("@p0/
     return {
       clear,
       render,
-      build_layout: build_layout,
+      build_layout,
     };
   }),
   dependencies: [],
