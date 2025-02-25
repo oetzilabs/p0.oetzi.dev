@@ -23,9 +23,14 @@ export class UIRendererService extends Effect.Service<UIRendererService>()("@p0/
     const build_layout = Effect.gen(function* (_) {
       const state = yield* _(appState.getState);
 
-      const sidebar_width = 20;
-      const error_width = 20;
-      const output_width = process.stdout.columns - (sidebar_width + error_width + 4);
+      const sidebar_width_percent = 20; // Percentage of terminal width
+      const error_width_percent = 20; // Percentage of terminal width
+
+      const total_width = process.stdout.columns;
+      const sidebar_width = Math.floor((sidebar_width_percent / 100) * total_width);
+      const error_width = Math.floor((error_width_percent / 100) * total_width);
+      const output_width = total_width - (sidebar_width + error_width + 4); // +4 for the borders
+
       const selected = state.selectedProcessId;
 
       // Build Sidebar Content
@@ -79,15 +84,16 @@ export class UIRendererService extends Effect.Service<UIRendererService>()("@p0/
       const output_lines = output_content.split("\n");
       const error_lines = errors_content.split("\n");
 
-      const maxLines = Math.max(sidebar_lines.length, output_lines.length, error_lines.length);
-      const console_height = process.stdout.rows - (maxLines + 2);
+      // Determine the number of lines to fill the terminal height
+      const terminal_height = process.stdout.rows - 3; // Subtract 2 for top and bottom borders
+      const content_height = Math.max(sidebar_lines.length, output_lines.length, error_lines.length, terminal_height);
 
       let layout = "";
 
       // Add Borders to the layout
       layout += `┏${sidebar_border}┳${output_border}┳${error_border}┓\n`;
 
-      for (let i = 0; i < console_height; i++) {
+      for (let i = 0; i < content_height; i++) {
         const sidebarLine = sidebar_lines[i] || "".padEnd(sidebar_width);
         const outputLine = output_lines[i] || "".padEnd(output_width);
         const errorLine = error_lines[i] || "".padEnd(error_width);
