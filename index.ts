@@ -1,6 +1,5 @@
 import { Project } from "@p0/core/src/projects";
 import { terminal_launcher } from "@p0/terminal";
-import { effect } from "solid-js/web";
 
 const terminal = terminal_launcher({
   name: "asdf",
