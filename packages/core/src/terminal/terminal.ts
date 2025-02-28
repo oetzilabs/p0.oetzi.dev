@@ -1,8 +1,10 @@
 import { Duration, Effect } from "effect";
 import { BaseLoggerLive, BaseLoggerService } from "../logger";
-import { AppStateLive, AppStateService, type Project } from "./app_state";
+import { type Project } from "../projects";
+import { ProjectManagerService, ProjectManagerLive } from "../projects/manager";
+import { AppStateService } from "./app_state";
 import { InputHandlerLive, InputHandlerService } from "./input_handler";
-import { ProcessManagerLive, ProcessManagerService } from "./process_manager";
+import { ProcessManagerLive } from "./process_manager";
 import { UIRendererLive, UIRendererService } from "./ui_renderer";
 
 export class TerminalService extends Effect.Service<TerminalService>()("@p0/core/terminal/repo", {
@@ -53,7 +55,7 @@ export class TerminalService extends Effect.Service<TerminalService>()("@p0/core
 const TerminalLive = TerminalService.Default;
 
 export type TerminalProgramInput = {
-  projects: Project[];
+  projects: Effect.Effect<Project>[];
   name: string;
 };
 
@@ -65,19 +67,30 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
     const terminal = yield* _(TerminalService);
     const app_state = yield* _(AppStateService);
     const ui_renderer = yield* _(UIRendererService);
-    const pm = yield* _(ProcessManagerService);
+    const pm = yield* _(ProjectManagerService);
 
     yield* logger.info("unknown", "Starting TUI loop");
-
-    yield* Effect.forEach(
-      input.projects.filter((p) => p.start_automatically ?? false),
-      (project) => pm.launchProject(project)
+    const list_pjs = Effect.gen(function* (_) {
+      const pjs: Project[] = [];
+      for (const pj of input.projects) {
+        const p = yield* _(pj);
+        pjs.push(yield* _(pj));
+      }
+      return pjs;
+    });
+    yield* Effect.flatMap(list_pjs, (ps) =>
+      Effect.forEach(
+        ps.filter((p) => p.start_automatically ?? false),
+        (project) => pm.launch(project)
+      )
     );
     yield* logger.info("launch_project", "Launched projects");
 
-    yield* Effect.forEach(
-      input.projects.filter((p) => !(p.start_automatically ?? false)),
-      (project) => pm.registerProject(project)
+    yield* Effect.flatMap(list_pjs, (ps) =>
+      Effect.forEach(
+        ps.filter((p) => !(p.start_automatically ?? false)),
+        (project) => pm.register(project)
+      )
     );
     yield* logger.info("register_project", "Registered projects");
 
@@ -128,6 +141,6 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
     Effect.provide(TerminalLive),
     Effect.provide(UIRendererLive),
     Effect.provide(InputHandlerLive),
-    Effect.provide(ProcessManagerLive),
+    Effect.provide(ProjectManagerLive),
     Effect.provide(BaseLoggerLive)
   );

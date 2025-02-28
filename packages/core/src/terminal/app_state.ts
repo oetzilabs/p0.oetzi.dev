@@ -2,21 +2,14 @@ import type { ProcessId, Signal } from "@effect/platform/CommandExecutor";
 import type { PlatformError } from "@effect/platform/Error";
 import type { Stream } from "effect";
 import { Effect, Option, SubscriptionRef, SynchronizedRef } from "effect";
-import { BaseLoggerLive, BaseLoggerService } from "../logger";
+import { BaseLoggerService } from "../logger";
+import type { Project } from "../projects";
 
 const FocusableComponents = {
   sidebar: "sidebar",
   output: "output",
   errors: "errors",
 } as const;
-
-export type Project = {
-  name: string;
-  path: string;
-  dev?: boolean | undefined;
-  command?: [string, ...string[]] | string;
-  start_automatically?: boolean | undefined;
-};
 
 export interface Process {
   id: ProcessId;

@@ -1,35 +1,36 @@
-import { Command, Path } from "@effect/platform";
-import { Effect, Option, Stream, pipe } from "effect";
+import { Path, Command } from "@effect/platform";
+import { Effect, SubscriptionRef, MutableList, Equal, Stream, pipe, Option, String } from "effect";
+import { ProjectStatus, type Project, type ProjectStatusEnum } from ".";
 import { BaseLoggerService } from "../logger";
-import { AppStateService } from "./app_state";
+import { AppStateService, ProcessManagerLive, ProcessManagerService } from "../terminal";
 
-export type ProcessCommand = {
-  name: string;
-  command: [string, ...string[]] | string;
-  path: string;
-  dev?: boolean | undefined;
-};
-
-export class ProcessManagerService extends Effect.Service<ProcessManagerService>()(
+export class ProjectManagerService extends Effect.Service<ProjectManagerService>()(
   "@p0/core/terminal/process_manager",
   {
     effect: Effect.gen(function* (_) {
-      const appState = yield* _(AppStateService);
+      const app_state = yield* _(AppStateService);
       const base_logger = yield* _(BaseLoggerService);
-      const logger = base_logger.withGroup("process_manager");
+      const pm = yield* _(ProcessManagerService);
+      const logger = base_logger.withGroup("project_manager");
       const cwd = process.cwd();
       const path = yield* _(Path.Path);
 
-      const trackCommand = (command: ProcessCommand) =>
+      const projects = yield* _(SubscriptionRef.make<Record<string, Project>>({}));
+
+      const launch = (project: Project) =>
         Effect.gen(function* (_) {
-          let pp = command.path ?? "";
-          let working_directory = path.join(cwd, pp);
+          const s = yield* _(SubscriptionRef.get<ProjectStatusEnum>(project.status));
+          if (Equal.equals(s, ProjectStatus.Running())) {
+            return yield* Effect.void;
+          }
+          let project_path = project.path ?? "";
+          let working_directory = path.join(cwd, project_path);
           let _command = ["bun", "run", `${working_directory}/index.ts`] as [string, ...string[]];
-          if (command.command !== undefined) {
-            if (typeof command.command === "string") {
-              _command = command.command.split(" ") as [string, ...string[]];
-            } else if (Array.isArray(command.command)) {
-              _command = command.command;
+          if (project.command !== undefined) {
+            if (typeof project.command === "string") {
+              _command = project.command.split(" ") as [string, ...string[]];
+            } else if (Array.isArray(project.command)) {
+              _command = project.command;
             }
           }
 
@@ -45,13 +46,13 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
                 const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));
 
                 yield* _(
-                  appState.updateState((state) => ({
+                  app_state.updateState((state) => ({
                     ...state,
                     processes: [
                       ...state.processes,
                       {
                         id: _process.pid,
-                        name: command.name,
+                        name: project.name,
                         status: "running",
                         kill: _process.kill,
                         stdout: stdoutStream,
@@ -71,7 +72,7 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
                 yield* _(
                   stdoutStream.pipe(
                     Stream.runForEach((line) =>
-                      appState.updateState((state) => {
+                      app_state.updateState((state) => {
                         const processIndex = state.processes.findIndex((p) => p.id === _process.pid);
                         if (processIndex === -1) return state;
 
@@ -92,7 +93,7 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
                 yield* _(
                   stderrStream.pipe(
                     Stream.runForEach((line) =>
-                      appState.updateState((state) => {
+                      app_state.updateState((state) => {
                         const processIndex = state.processes.findIndex((p) => p.id === _process.pid);
                         if (processIndex === -1) return state;
 
@@ -114,27 +115,41 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
             })
           );
           yield* logger.info("track_project", "pid", _process.pid);
+          // yield* snapshot(project);
         });
 
-      const launchCommand = (command: ProcessCommand) =>
+      const register = (project: Project) =>
         Effect.gen(function* (_) {
-          const state = yield* _(appState.getState);
-          const _project = state.projects.find((p) => p.name === command.name);
-          if (_project) {
-            return;
-          }
-
-          yield* trackCommand(command);
-          yield* logger.info("launch_project", "project", command.name);
+          yield* _(SubscriptionRef.update(project.status, () => ProjectStatus.Registered()));
+          yield* _(
+            app_state.updateState((state) => ({
+              ...state,
+              projects: [...state.projects, project],
+            }))
+          );
+          const projectId = project.id;
+          yield* _(
+            SubscriptionRef.update(projects, (currentProjects) => ({
+              ...currentProjects,
+              [projectId]: project,
+            }))
+          );
+          yield* logger.info("register_project", "project", project.name);
+          // set status to registered
+          // yield* snapshot(project);
+          return projectId;
         });
+
+      const getProjects = Effect.sync(() => SubscriptionRef.get(projects));
 
       return {
-        trackCommand,
-        launchCommand,
+        launch,
+        register,
+        getProjects,
       };
     }),
-    dependencies: [],
+    dependencies: [ProcessManagerLive],
   }
 ) {}
 
-export const ProcessManagerLive = ProcessManagerService.Default;
+export const ProjectManagerLive = ProjectManagerService.Default;
