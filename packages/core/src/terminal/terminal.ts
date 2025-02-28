@@ -55,7 +55,7 @@ export class TerminalService extends Effect.Service<TerminalService>()("@p0/core
 const TerminalLive = TerminalService.Default;
 
 export type TerminalProgramInput = {
-  projects: Effect.Effect<Project>[];
+  projects: (ReturnType<typeof Project.launch> | ReturnType<typeof Project.load> | ReturnType<typeof Project.decode>)[];
   name: string;
 };
 
@@ -73,8 +73,8 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
     const list_pjs = Effect.gen(function* (_) {
       const pjs: Project[] = [];
       for (const pj of input.projects) {
-        const p = yield* _(pj);
-        pjs.push(yield* _(pj));
+        const p = yield* pj;
+        pjs.push(p);
       }
       return pjs;
     });

@@ -19,8 +19,8 @@ export class ProjectManagerService extends Effect.Service<ProjectManagerService>
 
       const launch = (project: Project) =>
         Effect.gen(function* (_) {
-          const s = yield* _(SubscriptionRef.get<ProjectStatusEnum>(project.status));
-          if (Equal.equals(s, ProjectStatus.Running())) {
+          const s = yield* SubscriptionRef.get<ProjectStatusEnum>(project.status);
+          if (ProjectStatus.$is("Running")(s)) {
             return yield* Effect.void;
           }
           let project_path = project.path ?? "";
@@ -120,6 +120,10 @@ export class ProjectManagerService extends Effect.Service<ProjectManagerService>
 
       const register = (project: Project) =>
         Effect.gen(function* (_) {
+          const s = yield* SubscriptionRef.get<ProjectStatusEnum>(project.status);
+          if (ProjectStatus.$is("Registered")(s)) {
+            return yield* Effect.void;
+          }
           yield* _(SubscriptionRef.update(project.status, () => ProjectStatus.Registered()));
           yield* _(
             app_state.updateState((state) => ({
