@@ -4,12 +4,7 @@ import { terminal_launcher } from "@p0/terminal";
 const terminal = terminal_launcher({
   name: "asdf",
   projects: [
-    Project.launch({
-      name: "solid_dashboard",
-      path: "packages/web",
-      start_automatically: true,
-      command: "bun dev",
-    }),
+    Project.launch("examples/projects/wo65y7c2jgw6xfp5zf2mq46o"),
     Project.launch({
       name: "effect_ts_http_server",
       path: "packages/server/src",

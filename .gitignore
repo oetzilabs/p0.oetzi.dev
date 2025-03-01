@@ -176,4 +176,6 @@ dist
 db.sqlite
 db.test.sqlite
 
+projects
+
 log.jsonl
