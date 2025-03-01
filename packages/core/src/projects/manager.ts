@@ -1,6 +1,7 @@
 import { Path, Command } from "@effect/platform";
 import { Effect, SubscriptionRef, MutableList, Equal, Stream, pipe, Option, String } from "effect";
-import { ProjectStatus, type Project, type ProjectStatusEnum } from ".";
+import { ProjectStatus, type ProjectStatusEnum } from "./schemas";
+import { type Project } from ".";
 import { BaseLoggerService } from "../logger";
 import { AppStateService, ProcessManagerLive, ProcessManagerService } from "../terminal";
 

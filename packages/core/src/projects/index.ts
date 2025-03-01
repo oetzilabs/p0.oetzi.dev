@@ -1,26 +1,9 @@
-import { Data, Effect, Schema, String, SubscriptionRef } from "effect";
-import { createId, isCuid } from "@paralleldrive/cuid2";
 import { FileSystem, Path } from "@effect/platform";
-import { BunFileSystem } from "@effect/platform-bun";
+import { createId, isCuid } from "@paralleldrive/cuid2";
+import { Data, Effect, Schema, SubscriptionRef } from "effect";
+import { BaseLoggerService } from "../logger";
 import { ProjectIdNotCuid2, ProjectNotInStore, ProjectNotJson, ProjectStoreDoesNotExist } from "./errors";
-import { BaseLoggerLive, BaseLoggerService } from "../logger";
-
-export type ProjectStatusEnum = Data.TaggedEnum<{
-  Loading: {};
-  Registered: {};
-  Stopped: { readonly reason: string };
-  Running: {};
-}>;
-
-export const ProjectStatus = Data.taggedEnum<ProjectStatusEnum>();
-export const ProjectStatusSchema = Data.struct(ProjectStatus);
-
-export const ProjectId = Schema.String.pipe(
-  Schema.annotations({ identifier: "@p0/core/project/id" }),
-  Schema.brand("ProjectId")
-);
-
-export type ProjectId = Schema.Schema.Type<typeof ProjectId>;
+import { blaizmon_1740868627, ProjectId, ProjectStatus, type ProjectStatusEnum } from "./schemas";
 
 export type ProjectProps = {
   id: ProjectId;
@@ -33,16 +16,14 @@ export type ProjectProps = {
 };
 
 export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> {
-  static Schema = Schema.Struct({
-    id: ProjectId,
-    name: Schema.String,
-    path: Schema.optional(Schema.String),
-    dev: Schema.optional(Schema.Boolean),
-    command: Schema.optional(Schema.Union(Schema.String, Schema.Tuple(Schema.String, Schema.Array(Schema.String)))),
-    start_automatically: Schema.optional(Schema.Boolean),
+  static Schemas = Schema.Struct({
+    latest: blaizmon_1740868627,
+    blaizmon_1740868627: blaizmon_1740868627,
   });
 
-  static #JsonSchema = Schema.parseJson(Project.Schema);
+  static Schema = Project.Schemas.fields.latest;
+
+  static #JsonSchema = Schema.parseJson(Project.Schemas.fields.blaizmon_1740868627);
 
   static #parseJson = Schema.decodeUnknown(Project.#JsonSchema);
 
