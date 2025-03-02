@@ -74,35 +74,26 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
     const pm = yield* _(ProjectManagerService);
 
     yield* logger.info("unknown", "Starting TUI loop");
-    const list_pjs = Effect.gen(function* (_) {
-      const pjs: Project[] = [];
-      for (const pj of input.projects) {
-        const p = yield* Effect.catchTags(pj, {
-          ProjectNotInStore: () => Effect.succeed(undefined),
-          ProjectStoreDoesNotExist: () => Effect.succeed(undefined),
-          ProjectNotJson: () => Effect.succeed(undefined),
-        });
-        if (p) {
-          pjs.push(p);
-        }
-      }
-      return pjs;
-    });
-    yield* Effect.flatMap(list_pjs, (ps) =>
-      Effect.forEach(
-        ps.filter((p) => p.start_automatically ?? false),
-        (project) => pm.launch(project)
-      )
-    );
-    yield* logger.info("launch_project", "Launched projects");
+    const list_pjs = Effect.forEach(input.projects, (pj) =>
+      Effect.catchTags(pj, {
+        ProjectNotInStore: () => Effect.succeed(undefined),
+        ProjectStoreDoesNotExist: () => Effect.succeed(undefined),
+        ProjectNotJson: () => Effect.succeed(undefined),
+      })
+    ).pipe(Effect.map((results) => results.filter((p): p is Project => p !== undefined)));
 
     yield* Effect.flatMap(list_pjs, (ps) =>
-      Effect.forEach(
-        ps.filter((p) => !(p.start_automatically ?? false)),
-        (project) => pm.register(project)
-      )
+      Effect.all([
+        Effect.forEach(
+          ps.filter((p) => p.start_automatically ?? false),
+          (project) => pm.launch(project)
+        ),
+        Effect.forEach(
+          ps.filter((p) => !(p.start_automatically ?? false)),
+          (project) => pm.register(project)
+        ),
+      ])
     );
-    yield* logger.info("register_project", "Registered projects");
 
     yield* _(Effect.forkDaemon(terminal.runTUI));
     yield* logger.info("run_tui", "Starting TUI loop");
