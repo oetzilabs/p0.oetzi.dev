@@ -13,9 +13,9 @@ export const InputStringToHex = {
   // q
   q: "71",
   // k
-  k: "4b",
+  k: "6b",
   // j
-  j: "4a",
+  j: "6a",
   // h
   h: "68",
   // l
