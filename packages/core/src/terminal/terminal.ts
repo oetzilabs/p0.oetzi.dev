@@ -1,12 +1,11 @@
 import { Duration, Effect } from "effect";
 import { BaseLoggerLive, BaseLoggerService } from "../logger";
 import { type Project } from "../projects";
-import { ProjectManagerService, ProjectManagerLive } from "../projects/manager";
+import { ProjectManagerLive, ProjectManagerService } from "../projects/manager";
+import { TERMINAL_ACTIONS } from "./actions";
 import { AppStateService } from "./app_state";
 import { InputHandlerLive, InputHandlerService } from "./input_handler";
-import { ProcessManagerLive } from "./process_manager";
 import { UIRendererLive, UIRendererService } from "./ui_renderer";
-import { TERMINAL_ACTIONS } from "./actions";
 
 export class TerminalService extends Effect.Service<TerminalService>()("@p0/core/terminal/repo", {
   effect: Effect.gen(function* (_) {
