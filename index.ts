@@ -9,6 +9,9 @@ const terminal = terminal_launcher({
       name: "effect_ts_http_server",
       path: "packages/server/src",
       start_automatically: true,
+      environment: {
+        PORT: "8080",
+      },
     }),
   ],
 });

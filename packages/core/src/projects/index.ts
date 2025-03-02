@@ -1,4 +1,4 @@
-import { FileSystem, Path } from "@effect/platform";
+import { Command, FileSystem, Path } from "@effect/platform";
 import { createId, isCuid } from "@paralleldrive/cuid2";
 import { Data, Effect, Schema, SubscriptionRef } from "effect";
 import { BaseLoggerService } from "../logger";
@@ -13,6 +13,7 @@ export type ProjectProps = {
   command?: [string, ...string[]] | string;
   start_automatically?: boolean | undefined;
   status: SubscriptionRef.SubscriptionRef<ProjectStatusEnum>;
+  environment?: Parameters<typeof Command.env>[1];
 };
 
 export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> {
@@ -112,7 +113,7 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
       const log = logger.withGroup("project#decode");
       // yield* log.info("project_json", json);
       const project = yield* Project.#parseJson(json);
-      yield* log.info("project_decoded:TESTESTESTESTEST", project);
+      yield* log.info("project_decoded", JSON.stringify(project));
       const status = yield* SubscriptionRef.make<ProjectStatusEnum>(ProjectStatus.Loading());
       // TODO: fix this, this is a workaround... The types are readonly via schema, so we have to cast it.
       // This is a problem with the schema, we should be able to do this in the schema.

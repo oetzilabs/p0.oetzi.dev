@@ -12,5 +12,5 @@ export const HttpLive = HttpApiBuilder.serve(HttpMiddleware.logger).pipe(
   Layer.provide(HttpApiBuilder.middlewareCors()),
   Layer.provide(AllApisLive),
   HttpServer.withLogAddress,
-  Layer.provide(BunHttpServer.layer({ port: 3002 }))
+  Layer.provide(BunHttpServer.layer({}))
 );

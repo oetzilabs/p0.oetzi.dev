@@ -8,6 +8,7 @@ export type ProcessCommand = {
   command: [string, ...string[]] | string;
   path: string;
   dev?: boolean | undefined;
+  environment?: Parameters<typeof Command.env>[1];
 };
 
 export class ProcessManagerService extends Effect.Service<ProcessManagerService>()(
@@ -33,7 +34,13 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
             }
           }
 
-          const com = Command.make(..._command).pipe(Command.workingDirectory(working_directory));
+          const environment = command.environment ?? {};
+          yield* logger.info("environment", JSON.stringify(environment));
+
+          const com = Command.make(..._command).pipe(
+            Command.workingDirectory(working_directory),
+            Command.env(environment)
+          );
 
           const _process = yield* pipe(
             // Start running the command and return a handle to the running process
