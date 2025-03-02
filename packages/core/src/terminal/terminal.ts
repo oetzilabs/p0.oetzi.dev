@@ -18,11 +18,14 @@ export class TerminalService extends Effect.Service<TerminalService>()("@p0/core
       process.stdin.setEncoding("utf8");
 
       process.stdin.on("data", (chunk) => {
-        const key = chunk.toString();
-        // console.log("key", key);
+        const key = chunk.toString("utf8");
+        const as_hex = key
+          .split("")
+          .map((c) => c.charCodeAt(0).toString(16))
+          .join("");
         if (key) {
           // Run the handleInput effect and handle any potential errors
-          Effect.runPromise(inputHandler.handleInput(key));
+          Effect.runPromise(inputHandler.handleInput(as_hex, chunk));
         }
       });
 
@@ -126,6 +129,9 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
           is_running = yield* terminal.is_running;
           if (!is_running) {
             const ps = yield* terminal.peak;
+
+            const layout = yield* ui_renderer.build_layout;
+            yield* ui_renderer.render(layout);
             yield* Effect.forEach(ps, (p) => p.kill("SIGTERM"));
 
             yield* logger.warn("exit", "Terminating processes");
