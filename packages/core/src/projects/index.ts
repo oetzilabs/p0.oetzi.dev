@@ -3,7 +3,14 @@ import { createId, isCuid } from "@paralleldrive/cuid2";
 import { Data, Effect, Schema, SubscriptionRef } from "effect";
 import { BaseLoggerService } from "../logger";
 import { ProjectIdNotCuid2, ProjectNotInStore, ProjectNotJson, ProjectStoreDoesNotExist } from "./errors";
-import { blaizmon_1740868627, ProjectId, ProjectStatus, type ProjectStatusEnum } from "./schemas";
+import {
+  blaizmon_1740868627,
+  experimental_1740918335,
+  preloader,
+  ProjectId,
+  ProjectStatus,
+  type ProjectStatusEnum,
+} from "./schemas";
 
 export type ProjectProps = {
   id: ProjectId;
@@ -16,17 +23,27 @@ export type ProjectProps = {
   environment?: Record<string, string | number | boolean>;
 };
 
+type SchemaKeys = keyof typeof Project.Schemas.fields;
+
+type SchemaVariants = Exclude<SchemaKeys, "preloader">;
+
 export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> {
   static Schemas = Schema.Struct({
     latest: blaizmon_1740868627,
     blaizmon_1740868627: blaizmon_1740868627,
+    experimental_1740918335: experimental_1740918335,
+    preloader: preloader,
   });
 
   static Schema = Project.Schemas.fields.latest;
 
-  static #JsonSchema = Schema.parseJson(Project.Schemas.fields.blaizmon_1740868627);
+  static PreloadSchema = Project.Schemas.fields.preloader;
 
-  static #parseJson = Schema.decodeUnknown(Project.#JsonSchema);
+  static #JsonSchema = (key: SchemaVariants) =>
+    Schema.parseJson(
+      // @ts-expect-error We know that the key is a valid variant, since we are checking it in the schema.
+      Project.Schemas.fields[key]
+    );
 
   static launch = (props: Omit<ProjectProps, "id" | "status"> | string) =>
     Effect.gen(function* (_) {
@@ -111,8 +128,25 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
     Effect.gen(function* (_) {
       const logger = yield* _(BaseLoggerService);
       const log = logger.withGroup("project#decode");
-      // yield* log.info("project_json", json);
-      const project = yield* Project.#parseJson(json);
+
+      const preloadJson = yield* Schema.decodeUnknown(Schema.parseJson(Project.Schemas.fields.preloader))(json).pipe(
+        Effect.catchTag("ParseError", () => Effect.succeed(undefined))
+      );
+      if (!preloadJson) {
+        yield* log.error("project_not_json", json);
+        return yield* Effect.fail(ProjectNotJson.make({ json }));
+      }
+      if (!preloadJson.version) {
+        yield* log.error("project_not_json", json);
+        return yield* Effect.fail(ProjectNotJson.make({ json }));
+      }
+      let version = preloadJson.version as SchemaVariants;
+      if (version in Project.Schemas.fields) {
+        version = version as SchemaVariants;
+      } else {
+        version = "latest" as SchemaVariants;
+      }
+      const project = yield* Schema.decodeUnknown(Project.#JsonSchema(version))(json);
       yield* log.info("project_decoded", JSON.stringify(project));
       const status = yield* SubscriptionRef.make<ProjectStatusEnum>(ProjectStatus.Loading());
       // TODO: fix this, this is a workaround... The types are readonly via schema, so we have to cast it.
@@ -128,10 +162,18 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
       return new Project({ ...project, command, status });
     });
 
-  static #isJson = (json: string) => {
-    return Project.#parseJson(json).pipe(
-      Effect.map((x) => !!x),
-      Effect.catchTags({ ParseError: () => Effect.succeed(false) })
-    );
-  };
+  static #isJson = (json: string) =>
+    Effect.gen(function* (_) {
+      const preloadJson = yield* Schema.decodeUnknown(Schema.parseJson(Project.Schemas.fields.preloader))(json).pipe(
+        Effect.catchTag("ParseError", () => Effect.succeed(undefined))
+      );
+      if (!preloadJson) {
+        return yield* Effect.succeed(false);
+      }
+      let version = preloadJson.version;
+      if (!version) {
+        return yield* Effect.succeed(false);
+      }
+      return yield* Effect.succeed(version in Project.Schemas.fields);
+    });
 }
