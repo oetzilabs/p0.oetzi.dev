@@ -54,28 +54,28 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
       const fs = yield* _(FileSystem.FileSystem);
       const path = yield* _(Path.Path);
       const cwd = process.cwd();
+      const status = yield* SubscriptionRef.make<ProjectStatusEnum>(ProjectStatus.Loading());
 
       if (typeof props === "string") {
-        const validation = yield* git.validateUrl(props).pipe(
+        const git_url_validation = yield* git.validateUrl(props).pipe(
           Effect.catchTags({
             GitProjectDoesNotExist: () => Effect.succeed({ success: false, url: props }),
             InvalidGitUrl: () => Effect.succeed({ success: false, url: props }),
           })
         );
 
-        if (validation.success) {
-          const git_config = yield* git.toConfig(validation.url);
+        if (git_url_validation.success) {
+          const git_config = yield* git.toConfig(git_url_validation.url);
           yield* log.info("project_id is_git_url", props);
           const repo = yield* git.exists(git_config);
 
           if (!repo) {
-            yield* log.info("project#launch", "git#exists", "project_store_path", git_config.working_directory);
             const safeStoragePath = yield* git.clone(git_config);
-            yield* log.info("git#clone", "safeStoragePath", safeStoragePath);
-            const status = yield* SubscriptionRef.make<ProjectStatusEnum>(ProjectStatus.Loading());
+
             const project_name = yield* git.basename(git_config.repository.pathname);
-            yield* log.info("project_name", project_name);
+
             const project_id = ProjectId.make(createId());
+
             const the_project = new Project({
               id: project_id,
               name: project_name,
@@ -106,7 +106,6 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
                 flag: "w+",
               }
             );
-            yield* log.info("project#launch", "wrote project JSON", projectJsonPath);
 
             return yield* Effect.succeed(the_project);
           } else {
@@ -127,11 +126,6 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
             }
 
             if (json_files.length === 0) {
-              yield* log.error(
-                "project#launch",
-                "no project JSON file found for working_directory",
-                git_config.working_directory
-              );
               return yield* Effect.fail(ProjectNotInStore.make({ id: git_config.working_directory }));
             }
 
@@ -140,15 +134,8 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
             );
 
             if (!the_project) {
-              yield* log.error(
-                "project#launch",
-                "no project JSON file found for working_directory",
-                git_config.working_directory
-              );
               return yield* Effect.fail(ProjectNotInStore.make({ id: git_config.working_directory }));
             }
-
-            const status = yield* SubscriptionRef.make<ProjectStatusEnum>(ProjectStatus.Loading());
 
             return yield* Effect.succeed(
               new Project({
@@ -165,22 +152,17 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
         let possible_cuid = props;
         if (has_folder_prefix) {
           base_path = props.split("/").slice(0, -1).join("/");
-          yield* log.info("project_base_path", base_path);
           possible_cuid = props.split("/").slice(-1)[0];
-          yield* log.info("project_possible_cuid", possible_cuid);
         }
         const is_valid_cuid = isCuid(possible_cuid);
         if (is_valid_cuid) {
-          yield* log.info("project_id is_valid_cuid", props);
           const id = ProjectId.make(possible_cuid);
           const project = yield* Project.#load(id, base_path);
           return project;
         } else {
           const is_json = yield* Project.#isJson(props);
           if (is_json) {
-            yield* log.info("project_id is_json", props);
             const project = yield* Project.#decode(props);
-            yield* log.info("project_decoded", project);
             return project;
           } else {
             return yield* Effect.fail(ProjectIdNotCuid2.make({ id: props }));
@@ -189,7 +171,6 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
       }
 
       const id = ProjectId.make(createId());
-      const status = yield* _(SubscriptionRef.make<ProjectStatusEnum>(ProjectStatus.Loading()));
       return new Project({ ...props, id, status });
     });
 
