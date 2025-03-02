@@ -6,6 +6,7 @@ import { AppStateService } from "./app_state";
 import { InputHandlerLive, InputHandlerService } from "./input_handler";
 import { ProcessManagerLive } from "./process_manager";
 import { UIRendererLive, UIRendererService } from "./ui_renderer";
+import { TERMINAL_ACTIONS } from "./actions";
 
 export class TerminalService extends Effect.Service<TerminalService>()("@p0/core/terminal/repo", {
   effect: Effect.gen(function* (_) {
@@ -128,21 +129,17 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
             const ps = yield* terminal.peak;
             yield* Effect.forEach(ps, (p) => p.kill("SIGTERM"));
 
-            yield* logger.warn("kill", "Terminating processes");
+            yield* logger.warn("exit", "Terminating processes");
             process.stdin.setRawMode(false);
-            process.stdout.write("\x1b[2J");
-            process.stdout.write("\x1b[0;0H");
+            process.stdout.write(TERMINAL_ACTIONS.CLEAR);
+            process.stdout.write(TERMINAL_ACTIONS.CURSOR_HOME);
             yield* logger.info("exit", "Exiting");
             process.exit(0);
           }
           yield* _(Effect.sleep(Duration.millis(10)));
         }),
       step: () => undefined,
-    }).pipe(
-      Effect.catchTags({
-        // ExitError: () => Effect.succeed(undefined),
-      })
-    );
+    });
   }).pipe(
     Effect.provide(TerminalLive),
     Effect.provide(UIRendererLive),

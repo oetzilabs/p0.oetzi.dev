@@ -1,5 +1,6 @@
-import { Effect, Option, SubscriptionRef } from "effect";
+import { Data, Effect, Option, Schema, SubscriptionRef } from "effect";
 import { AppStateService } from "./app_state";
+import { TERMINAL_ACTIONS } from "./actions";
 
 export class UIRendererService extends Effect.Service<UIRendererService>()("@p0/core/terminal/ui_renderer", {
   effect: Effect.gen(function* (_) {
@@ -7,14 +8,14 @@ export class UIRendererService extends Effect.Service<UIRendererService>()("@p0/
 
     const last_rendererd = yield* SubscriptionRef.make("");
 
-    const clear = Effect.sync(() => process.stdout.write("\x1b[2J"));
+    const clear = Effect.sync(() => process.stdout.write(TERMINAL_ACTIONS.CLEAR));
 
     const render = (layout: string) =>
       Effect.gen(function* (_) {
         const lr = yield* SubscriptionRef.get(last_rendererd);
         if (layout !== lr) {
-          process.stdout.write("\x1b[2J");
-          process.stdout.write("\x1b[0;0H");
+          process.stdout.write(TERMINAL_ACTIONS.CLEAR);
+          process.stdout.write(TERMINAL_ACTIONS.CURSOR_HOME);
           process.stdout.write(layout);
           yield* SubscriptionRef.update(last_rendererd, () => layout);
         }
