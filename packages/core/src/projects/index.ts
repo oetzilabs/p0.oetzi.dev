@@ -13,7 +13,7 @@ export type ProjectProps = {
   command?: [string, ...string[]] | string;
   start_automatically?: boolean | undefined;
   status: SubscriptionRef.SubscriptionRef<ProjectStatusEnum>;
-  environment?: Parameters<typeof Command.env>[1];
+  environment?: Record<string, string | number | boolean>;
 };
 
 export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> {
