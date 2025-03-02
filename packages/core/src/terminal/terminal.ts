@@ -6,6 +6,7 @@ import { TERMINAL_ACTIONS } from "./actions";
 import { AppStateService } from "./app_state";
 import { InputHandlerLive, InputHandlerService } from "./input_handler";
 import { UIRendererLive, UIRendererService } from "./ui_renderer";
+import { GitLive, GitService } from "../git";
 
 export class TerminalService extends Effect.Service<TerminalService>()("@p0/core/terminal/repo", {
   effect: Effect.gen(function* (_) {
