@@ -6,12 +6,14 @@ import { ProjectIdNotCuid2, ProjectNotInStore, ProjectNotJson, ProjectStoreDoesN
 import {
   blaizmon_1740868627,
   experimental_1740918335,
+  latest,
   preloader,
   ProjectId,
   ProjectStatus,
   type ProjectStatusEnum,
 } from "./schemas";
 import { GitService } from "../git";
+import type { Prettify } from "valibot";
 
 export type ProjectProps = {
   id: ProjectId;
@@ -30,7 +32,7 @@ type SchemaVariants = Exclude<SchemaKeys, "preloader">;
 
 export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> {
   static Schemas = Schema.Struct({
-    latest: blaizmon_1740868627,
+    latest: latest,
     blaizmon_1740868627: blaizmon_1740868627,
     experimental_1740918335: experimental_1740918335,
     preloader: preloader,
@@ -48,12 +50,7 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
 
   static launch = (props: Omit<ProjectProps, "id" | "status"> | string) =>
     Effect.gen(function* (_) {
-      const logger = yield* _(BaseLoggerService);
       const git = yield* _(GitService);
-      const log = logger.withGroup("project#launch");
-      const fs = yield* _(FileSystem.FileSystem);
-      const path = yield* _(Path.Path);
-      const cwd = process.cwd();
       const status = yield* SubscriptionRef.make<ProjectStatusEnum>(ProjectStatus.Loading());
 
       if (typeof props === "string") {
@@ -65,85 +62,25 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
         );
 
         if (git_url_validation.success) {
-          const git_config = yield* git.toConfig(git_url_validation.url);
-          yield* log.info("project_id is_git_url", props);
-          const repo = yield* git.exists(git_config);
-
-          if (!repo) {
-            const safeStoragePath = yield* git.clone(git_config);
-
-            const project_name = yield* git.basename(git_config.repository.pathname);
-
-            const project_id = ProjectId.make(createId());
-
-            const the_project = new Project({
-              id: project_id,
-              name: project_name,
-              path: safeStoragePath,
-              start_automatically: false,
-              environment: git_config.environment,
-              status,
-            });
-
-            // Create and write the project JSON file
-            const projectJsonPath = path.join(cwd, "projects", `${project_id}.json`);
-            yield* fs.writeFileString(
-              projectJsonPath,
-              JSON.stringify(
-                {
-                  version: "latest",
-                  _tag: "@p0/core/project",
-                  id: project_id,
-                  name: project_name,
-                  path: safeStoragePath,
-                  start_automatically: false,
-                  environment: git_config.environment,
-                },
-                null,
-                2
-              ),
-              {
-                flag: "w+",
-              }
+          // does the json file in the `projects` store already exist?
+          const fs = yield* _(FileSystem.FileSystem);
+          const fs_path = yield* _(Path.Path);
+          const cwd = process.cwd();
+          const store_path = fs_path.join(
+            cwd,
+            "projects",
+            `${new URL(git_url_validation.url).pathname.split("/").slice(0, -1).join("/")}`
+          );
+          const store_exists = yield* fs.exists(store_path);
+          if (store_exists) {
+            // get the json file
+            const project_json = yield* fs.readFileString(
+              fs_path.join(store_path, `${new URL(git_url_validation.url).pathname.split("/").slice(-1)[0]}.json`)
             );
-
-            return yield* Effect.succeed(the_project);
-          } else {
-            // iterate over the json files in `projects` and find the one with the working_directory
-            const files = yield* fs.readDirectory(path.join(cwd, "projects"));
-            const json_files = [];
-            for (const file of files) {
-              if (file.endsWith(".json")) {
-                const f = yield* fs.readFileString(path.join(cwd, "projects", file));
-                const is_json = Project.#isJson(f);
-                if (is_json) {
-                  const project = yield* Project.#decode(f);
-                  if (project.path === git_config.working_directory) {
-                    json_files.push(project);
-                  }
-                }
-              }
-            }
-
-            if (json_files.length === 0) {
-              return yield* Effect.fail(ProjectNotInStore.make({ id: git_config.working_directory }));
-            }
-
-            const the_project = json_files.find(
-              (f) => f.path === git.getSafeStoragePath(git_config.repository.pathname.slice(1))
-            );
-
-            if (!the_project) {
-              return yield* Effect.fail(ProjectNotInStore.make({ id: git_config.working_directory }));
-            }
-
-            return yield* Effect.succeed(
-              new Project({
-                ...the_project,
-                status,
-              })
-            );
+            const decoded = yield* Project.#decode(project_json);
+            return yield* Project.#load(decoded.id);
           }
+          return yield* Project.#git(git_url_validation.url);
         }
 
         // Existing logic for CUID and JSON project loading
@@ -212,6 +149,81 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
       return project;
     });
 
+  static #git = (git_url: string) =>
+    Effect.gen(function* (_) {
+      const git = yield* _(GitService);
+      const fs = yield* _(FileSystem.FileSystem);
+      const path = yield* _(Path.Path);
+      const cwd = process.cwd();
+      const status = yield* SubscriptionRef.make<ProjectStatusEnum>(ProjectStatus.Loading());
+
+      const git_config = yield* git.toConfig(git_url);
+
+      const repo = yield* git.exists(git_config);
+
+      if (!repo) {
+        const repo_local_path = yield* git.clone(git_config);
+
+        const project_name = yield* git.basename(git_config.repository.pathname);
+
+        const project_id = ProjectId.make(createId());
+
+        const project = new Project({
+          id: project_id,
+          name: project_name,
+          path: repo_local_path,
+          start_automatically: false,
+          environment: git_config.environment,
+          status,
+        });
+
+        // Create and write the project JSON file
+        const projectJsonPath = path.join(cwd, "projects", `${project_id}.json`);
+
+        const project_json = yield* project.toJson();
+
+        yield* fs.writeFileString(projectJsonPath, project_json, { flag: "w+" });
+
+        return yield* Effect.succeed(project);
+      } else {
+        // iterate over the json files in `projects` and find the one with the working_directory
+        const files = yield* fs.readDirectory(path.join(cwd, "projects"));
+        const json_files = [];
+        for (const file of files) {
+          if (file.endsWith(".json")) {
+            const f = yield* fs.readFileString(path.join(cwd, "projects", file));
+            const is_json = Project.#isJson(f);
+            if (is_json) {
+              const project = yield* Project.#decode(f);
+              if (project.path === git_config.working_directory) {
+                json_files.push(project);
+              }
+            }
+          }
+        }
+
+        if (json_files.length === 0) {
+          return yield* Effect.fail(ProjectNotInStore.make({ id: git_config.working_directory }));
+        }
+
+        const the_project = json_files.find(
+          (f) =>
+            f.path === git.get_safe_local_path(git_config.repository.hostname, git_config.repository.pathname.slice(1))
+        );
+
+        if (!the_project) {
+          return yield* Effect.fail(ProjectNotInStore.make({ id: git_config.working_directory }));
+        }
+
+        return yield* Effect.succeed(
+          new Project({
+            ...the_project,
+            status,
+          })
+        );
+      }
+    });
+
   static #decode = (json: string) =>
     Effect.gen(function* (_) {
       const logger = yield* _(BaseLoggerService);
@@ -264,4 +276,30 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
       }
       return yield* Effect.succeed(version in Project.Schemas.fields);
     });
+
+  toJson = () => {
+    const that = this;
+    return Effect.gen(function* (_) {
+      let command_inversed: Parameters<typeof Project.Schemas.fields.latest.make>[0]["command"] = undefined;
+      if (that.command !== undefined) {
+        if (typeof that.command === "string") {
+          command_inversed = that.command.split(" ") as unknown as readonly [string, readonly string[]];
+        } else if (Array.isArray(that.command)) {
+          command_inversed = [that.command[0], ...that.command.slice(1)] as unknown as readonly [
+            string,
+            readonly string[]
+          ];
+        }
+      }
+      const data = yield* Schema.encode(Project.Schemas.fields.latest)(
+        Project.Schemas.fields.latest.make({
+          ...that,
+          version: "latest",
+          _tag: "@p0/core/project",
+          command: command_inversed,
+        })
+      );
+      return JSON.stringify(data);
+    });
+  };
 }

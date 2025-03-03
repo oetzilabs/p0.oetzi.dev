@@ -4,6 +4,7 @@ import { Command, FileSystem, Path } from "@effect/platform";
 import { BaseLoggerService } from "../logger";
 import { GitCantUseBothBranchAndCommit, GitProjectDoesNotExist, InvalidGitUrl } from "./errors";
 import { env } from "bun";
+import { BunFileSystem } from "@effect/platform-bun";
 
 export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo", {
   effect: Effect.gen(function* (_) {
@@ -13,10 +14,10 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
     const path = yield* _(Path.Path);
     const fs = yield* _(FileSystem.FileSystem);
 
-    const getSafeStoragePath = (projectId: string) => {
+    const get_safe_local_path = (hostname: string, repo_org_user_pathname: string) => {
       const homeDir = env.HOME || env.USERPROFILE || "/tmp"; // Fallback to /tmp
-      const baseDir = path.join(homeDir, ".p0", "projects"); // Consistent base directory
-      const projectDir = path.join(baseDir, projectId);
+      const baseDir = path.join(homeDir, ".p0", "projects", hostname); // Consistent base directory
+      const projectDir = path.join(baseDir, repo_org_user_pathname);
       return projectDir;
     };
 
@@ -29,17 +30,6 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
             yield* logger.info("git#check_and_create_store", `Creating store for ${hostname}`);
             yield* _(fs.makeDirectory(store_path, { recursive: true }));
           }
-        }
-      });
-
-    const make_entity_directory = (hostname: string, entity: string) =>
-      Effect.gen(function* (_) {
-        const store_path = path.join(cwd, "projects", hostname);
-        const entity_path = path.join(store_path, entity);
-        const entity_exists = yield* fs.exists(entity_path);
-        if (!entity_exists) {
-          yield* logger.info("git#make_entity_directory", `Creating entity for ${hostname}/${entity}`);
-          yield* _(fs.makeDirectory(entity_path, { recursive: true }));
         }
       });
 
@@ -85,20 +75,31 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
         const { repository, branch, commit, environment } = git;
         const env = environment ?? {};
         const entity_folder = git.repository.pathname.slice(1).split("/")[0];
-        const safe_entity_folder = getSafeStoragePath(entity_folder);
-        const safe_storage_path = getSafeStoragePath(git.repository.pathname.slice(1));
+        const repo_name = git.repository.pathname.slice(1).split("/").slice(-1)[0];
+        const local_entity_folder_path = get_safe_local_path(git.repository.hostname, entity_folder);
+        const repo_local_path = get_safe_local_path(git.repository.hostname, git.repository.pathname.slice(1));
+        // yield* logger.info("git#clone", "local_entity_folder_path", local_entity_folder_path);
+        // yield* logger.info("git#clone", "repo_local_path", repo_local_path);
 
         const fs = yield* _(FileSystem.FileSystem);
         const path = yield* _(Path.Path);
-        const log = yield* _(BaseLoggerService);
-        const logger = log.withGroup("git");
+
+        // Does the repo_local_path already exist?
+        const repo_exists = yield* fs.exists(repo_local_path);
+        if (repo_exists) {
+          return repo_local_path;
+        }
 
         // Ensure the safe storage directory exists
-        yield* fs.makeDirectory(safe_entity_folder, { recursive: true });
-        yield* logger.info("git#clone", "safeStoragePath", safe_storage_path);
+        yield* fs.makeDirectory(repo_local_path, { recursive: true });
+        // yield* logger.info("git#clone", "safeStoragePath", repo_local_path);
 
         // Clone the repository into the safe storage path
-        const _process = yield* simple_process(`clone ${repository.toString()} .`, env, safe_entity_folder);
+        const _process = yield* simple_process(
+          `clone ${repository.toString()} ${repo_name}`,
+          env,
+          local_entity_folder_path
+        );
 
         if (branch && commit) {
           return yield* Effect.fail(
@@ -110,20 +111,21 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
         }
 
         if (branch && !commit) {
-          yield* simple_process(`checkout ${branch}`, env, safe_storage_path);
+          yield* simple_process(`checkout ${branch}`, env, repo_local_path);
         }
 
         if (commit && !branch) {
-          yield* simple_process(`checkout ${commit}`, env, safe_storage_path);
+          yield* simple_process(`checkout ${commit}`, env, repo_local_path);
         }
 
         yield* logger.info("git#clone", "pid", _process.pid);
-        return safe_storage_path; // Return the safe storage path
+        return repo_local_path; // Return the safe storage path
       });
 
     const pull = (git: Git) =>
       Effect.gen(function* (_) {
-        const working_directory = git.working_directory ?? getSafeStoragePath(git.repository.pathname.slice(1));
+        const working_directory =
+          git.working_directory ?? get_safe_local_path(git.repository.hostname, git.repository.pathname);
 
         const _process = yield* simple_process(`pull`, git.environment ?? {}, working_directory);
 
@@ -133,7 +135,9 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
 
     const exists = (git: Git) =>
       Effect.gen(function* (_) {
-        const projectExists = yield* fs.exists(getSafeStoragePath(git.repository.pathname.slice(1)));
+        const local_path = get_safe_local_path(git.repository.hostname, git.repository.pathname);
+        yield* logger.info("git#exists", "local_path", local_path);
+        const projectExists = yield* fs.exists(local_path);
         return projectExists;
       });
 
@@ -221,10 +225,10 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
       basename,
       get_working_directory,
       check_and_create_store,
-      getSafeStoragePath,
+      get_safe_local_path,
     } as const;
   }),
-  dependencies: [],
+  dependencies: [BunFileSystem.layer],
 }) {}
 
 export const GitLive = GitService.Default;
