@@ -13,7 +13,7 @@ export class ComputeWorkerPool extends Context.Tag("@p0/core/compute/worker_pool
 export const ComputeWorkerPoolLive = (ttl_minutes: number) =>
   Worker.makePoolLayer(ComputeWorkerPool, {
     size: OS.availableParallelism(),
-    concurrency: OS.availableParallelism(),
-    targetUtilization: 2,
-    timeToLive: Duration.minutes(ttl_minutes),
+    // concurrency: OS.availableParallelism(),
+    // targetUtilization: 2,
+    // timeToLive: Duration.minutes(ttl_minutes),
   }).pipe(Layer.provide(BunWorker.layer((id) => new globalThis.Worker(`${__dirname}/worker/compute.ts`))));

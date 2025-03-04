@@ -20,16 +20,9 @@ export class ComputeUnit extends Effect.Service<ComputeUnit>()("@p0/core/compute
         return _task;
       });
 
-    const start = Effect.gen(function* () {
-      yield* SubscriptionRef.update(status, (s) => ComputeStatus.Initializing());
-      // forkDaemon the cm.loop
-      yield* cm.loop.pipe(Effect.forkDaemon);
-      yield* SubscriptionRef.update(status, (s) => ComputeStatus.Running());
-    });
-
-    return { queue, start } as const;
+    return { queue } as const;
   }),
-  dependencies: [ComputeManagerLive],
+  dependencies: [],
 }) {}
 
 export const ComputeUnitLive = ComputeUnit.Default;
