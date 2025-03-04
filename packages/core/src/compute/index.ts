@@ -11,8 +11,21 @@ export class ComputeUnit extends Effect.Service<ComputeUnit>()("@p0/core/compute
 
     const status = yield* SubscriptionRef.make<ComputeStatusEnum>(ComputeStatus.Uninitialized());
 
-    const queue = (task: ComputeTask) => cm.queue_up(task);
-    const start = () => cm.loop;
+    const queue = (task: ComputeTask) =>
+      Effect.gen(function* () {
+        yield* SubscriptionRef.update(status, (s) => ComputeStatus.Initializing());
+        const _task = yield* cm.queue_up(task);
+        yield* logger.info("compute_unit#queue", "task queued up:", _task);
+        yield* SubscriptionRef.update(status, (s) => ComputeStatus.Initialized());
+        return _task;
+      });
+
+    const start = Effect.gen(function* () {
+      yield* SubscriptionRef.update(status, (s) => ComputeStatus.Initializing());
+      // forkDaemon the cm.loop
+      yield* cm.loop.pipe(Effect.forkDaemon);
+      yield* SubscriptionRef.update(status, (s) => ComputeStatus.Running());
+    });
 
     return { queue, start } as const;
   }),

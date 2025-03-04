@@ -11,7 +11,7 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
 
     const workerPool = yield* _(ComputeWorkerPool);
 
-    const execute = <CT extends ComputeTask, Output = unknown>(task: CT) =>
+    const execute = <CT extends ComputeTask>(task: CT) =>
       Effect.gen(function* () {
         const execution = workerPool.execute(task.payload);
         yield* execution.pipe(
@@ -22,7 +22,7 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
 
     return { execute } as const;
   }),
-  dependencies: [ComputeWorkerPoolLive],
+  dependencies: [ComputeWorkerPoolLive(15)],
 }) {}
 
 export const ComputeRunnerLive = ComputeRunner.Default;

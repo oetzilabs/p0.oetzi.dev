@@ -10,7 +10,10 @@ export type ComputeTaskConfig = typeof ComputeTaskConfigSchema.Type;
 
 export const ComputeTaskSchema = Schema.Struct({
   id: Cuid2Schema,
-  payload: Schema.Any,
+  payload: Schema.Struct({
+    script: Schema.optional(Schema.String),
+    payload: Schema.optional(Schema.Any),
+  }),
   config: ComputeTaskConfigSchema,
 });
 
