@@ -6,13 +6,11 @@ import { Effect, Layer, Logger } from "effect";
 
 export const terminal_launcher = (...args: Parameters<typeof TerminalProgram>) =>
   BunRuntime.runMain(
-    Effect.scoped(TerminalProgram(...args))
-      //
-      .pipe(
-        Effect.provide(GitLive),
-        Effect.provide(AppStateLive),
-        Effect.provide(BaseLoggerLive),
-        Effect.provide(BunContext.layer),
-        Effect.provide(Logger.replaceScoped(Logger.defaultLogger, json_logger).pipe(Layer.provide(BunFileSystem.layer)))
-      )
+    Effect.scoped(TerminalProgram(...args)).pipe(
+      Effect.provide(GitLive),
+      Effect.provide(AppStateLive),
+      Effect.provide(BaseLoggerLive),
+      Effect.provide(BunContext.layer),
+      Effect.provide(Logger.replaceScoped(Logger.defaultLogger, json_logger).pipe(Layer.provide(BunFileSystem.layer)))
+    )
   );

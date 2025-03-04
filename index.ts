@@ -14,6 +14,6 @@ const terminal = terminal_launcher({
     //   },
     // }),
     // i love solid-start :)
-    Project.launch("github:solidjs/solid-start"),
+    // Project.launch("github:solidjs/solid-start"),
   ],
 });
