@@ -1,4 +1,4 @@
-import { Effect, Queue } from "effect";
+import { Effect, Queue, SubscriptionRef } from "effect";
 import { type ComputeTask } from "../schemas";
 import { BaseLoggerService } from "../../logger";
 import { ComputeRunner, ComputeRunnerLive } from "./runner";
@@ -10,32 +10,42 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
     const logger = log.withGroup("compute_manager");
 
     // Get CPU count for queue size
-    const queue = yield* Queue.bounded<ComputeTask>(Math.max(2, OS.cpus().length));
+    const queue = yield* Queue.unbounded<ComputeTask>();
     const runner = yield* _(ComputeRunner);
 
     const queue_up = (task: ComputeTask) =>
       Effect.gen(function* (_) {
-        yield* logger.info("compute_manager#queue_up", "task", task);
+        yield* logger.info("compute_manager#queue_up", "task", JSON.stringify(task));
         yield* queue.offer(task);
         yield* logger.info("queue", "#capacity", queue.capacity());
         return task.id;
       });
 
-    const loop = Effect.whileLoop({
-      while: () => true,
-      body: () =>
-        Effect.gen(function* (_) {
-          const task = yield* queue.take;
-          logger.info("task_yield", JSON.stringify(task));
-          const result = yield* runner.execute(task);
-          return result;
-        }),
-      step: (a) => {
-        return Effect.succeed(a);
-      },
+    const process_task = (task: ComputeTask) =>
+      Effect.gen(function* (_) {
+        yield* logger.info("Processing task", task.id);
+        yield* logger.info("Task completed", task.id);
+        yield* runner.execute(task);
+      });
+
+    const start_loop = Effect.gen(function* (_) {
+      const loop = Effect.gen(function* (_) {
+        let duration = 0;
+        while (queue.isActive()) {
+          const start = Date.now();
+          const task = yield* queue.take; // Take a task from the queue (blocks if empty)
+          yield* process_task(task);
+          duration += Date.now() - start;
+        }
+      }).pipe(Effect.forever); // Keep the loop going indefinitely
+
+      // Fork the loop to run it in the background
+      yield* Effect.fork(loop);
     });
 
-    return { queue_up, loop } as const;
+    // const x = yield* loop;
+
+    return { queue_up, start_loop } as const;
   }),
   dependencies: [ComputeRunnerLive],
 }) {}

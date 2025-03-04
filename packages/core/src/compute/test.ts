@@ -7,44 +7,43 @@ import { BaseLoggerLive, BaseLoggerService, json_logger } from "../logger";
 import { ComputeTaskSchema } from "./schemas";
 import { layerSpawner, PlatformWorker } from "@effect/platform/Worker";
 import { Worker } from "@effect/platform";
+import { ComputeManager, ComputeManagerLive } from "./manager";
 
 const program = Effect.gen(function* (_) {
   const log = yield* _(BaseLoggerService);
   const logger = log.withGroup("program");
+  const cm = yield* _(ComputeManager);
   const cu = yield* _(ComputeUnit);
-  yield* logger.info("program", "setting up");
-  yield* logger.info("program", "preparing task");
-  const task = ComputeTaskSchema.make({
-    config: {},
-    payload: {
+
+  const test_task = (x: number) =>
+    ComputeTaskSchema.make({
+      config: {},
       payload: {
-        test: "hello world",
+        payload: {},
+        script: `
+        async function main(pl, mods) { 
+        await new Promise(resolve => setTimeout(resolve, 10 * ${x}));
+        console.log(pl,"${x}"); 
+        return "${x}";
+        }`,
       },
-      script: "console.log(payload.test)",
-    },
-    id: Cuid2Schema.make(createId()),
-  });
-  yield* logger.info("program", "task", task);
+      id: Cuid2Schema.make(createId()),
+    });
 
-  const task2 = ComputeTaskSchema.make({
-    config: {},
-    payload: {
-      payload: {},
-      script: "console.log(process.cwd(), payload)",
-    },
-    id: Cuid2Schema.make(createId()),
-  });
+  for (let i = 0; i < 20; i++) {
+    const task = test_task(i);
+    yield* cu.queue(task);
+  }
 
-  yield* cu.queue(task);
-  yield* cu.queue(task2);
-  // yield* Effect.sleep(Duration.seconds(1));
-  yield* cu.start;
+  yield* cm.start_loop;
+  yield* Effect.forever(Effect.void);
 });
 
 const x = BunRuntime.runMain(
   Effect.scoped(
     program.pipe(
       Effect.provide(ComputeUnitLive),
+      Effect.provide(ComputeManagerLive),
       Effect.provide(BaseLoggerLive),
       Effect.provide(BunContext.layer),
       Effect.provide(Logger.replaceScoped(Logger.defaultLogger, json_logger).pipe(Layer.provide(BunFileSystem.layer)))
