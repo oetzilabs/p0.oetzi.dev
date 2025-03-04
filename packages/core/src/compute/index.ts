@@ -1,25 +1,22 @@
-import { Effect, pipe, Stream } from "effect";
-import type { Compute } from "./schemas";
-import { Command, FileSystem, Path } from "@effect/platform";
+import { Effect, SubscriptionRef } from "effect";
+import { ComputeStatus, type ComputeStatusEnum, type ComputeTask } from "./schemas";
 import { BaseLoggerService } from "../logger";
-import { ComputeNotAvailable, ComputeOverloaded, ComputeShutdown } from "./errors";
-import { env } from "bun";
-import { BunFileSystem } from "@effect/platform-bun";
+import { ComputeManager, ComputeManagerLive } from "./manager";
 
-export class ComputeUnit extends Effect.Service<ComputeUnit>()("@p0/core/git/repo", {
+export class ComputeUnit extends Effect.Service<ComputeUnit>()("@p0/core/compute/unit", {
   effect: Effect.gen(function* (_) {
+    const cm = yield* _(ComputeManager);
     const log = yield* _(BaseLoggerService);
-    const logger = log.withGroup("git");
-    const cwd = process.cwd();
-    const path = yield* _(Path.Path);
-    const fs = yield* _(FileSystem.FileSystem);
+    const logger = log.withGroup("compute_unit");
 
+    const status = yield* SubscriptionRef.make<ComputeStatusEnum>(ComputeStatus.Uninitialized());
 
-    return {
-    } as const;
+    const queue = (task: ComputeTask) => cm.queue_up(task);
+    const start = () => cm.loop;
+
+    return { queue, start } as const;
   }),
-  dependencies: [BunFileSystem.layer],
+  dependencies: [ComputeManagerLive],
 }) {}
 
 export const ComputeUnitLive = ComputeUnit.Default;
-

@@ -1,4 +1,4 @@
-import { Command, FileSystem, Path } from "@effect/platform";
+import { FileSystem, Path } from "@effect/platform";
 import { createId, isCuid } from "@paralleldrive/cuid2";
 import { Data, Effect, Schema, SubscriptionRef } from "effect";
 import { BaseLoggerService } from "../logger";
@@ -13,7 +13,6 @@ import {
   type ProjectStatusEnum,
 } from "./schemas";
 import { GitService } from "../git";
-import type { Prettify } from "valibot";
 
 export type ProjectProps = {
   id: ProjectId;
