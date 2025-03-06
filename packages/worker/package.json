@@ -1,0 +1,29 @@
+{
+  "name": "@p0/worker",
+  "module": "src/index.ts",
+  "type": "module",
+  "exports": [
+    "./src/index.ts"
+  ],
+  "devDependencies": {
+    "@effect/language-service": "^0.2.0",
+    "@effect/vitest": "^0.18.1",
+    "@types/bun": "latest",
+    "vitest": "^3.0.5"
+  },
+  "scripts": {
+    "test": "vitest"
+  },
+  "peerDependencies": {
+    "typescript": "5.7.3"
+  },
+  "dependencies": {
+    "@effect/experimental": "^0.41.2",
+    "@effect/platform": "^0.77.2",
+    "@effect/platform-bun": "^0.57.2",
+    "effect": "3.13.2"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

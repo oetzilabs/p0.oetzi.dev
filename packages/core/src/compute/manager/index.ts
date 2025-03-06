@@ -43,9 +43,9 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
       yield* Effect.fork(loop);
     });
 
-    // const x = yield* loop;
+    yield* start_loop; // no need to expose this
 
-    return { queue_up, start_loop } as const;
+    return { queue_up } as const;
   }),
   dependencies: [ComputeRunnerLive],
 }) {}

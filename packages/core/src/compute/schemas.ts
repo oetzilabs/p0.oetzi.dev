@@ -1,20 +1,31 @@
-import { Data, Schema } from "effect";
+import { Data, Duration, Schema } from "effect";
 import { Cuid2Schema } from "../cuid2/schema";
+import { createId } from "@paralleldrive/cuid2";
 
 export const ComputeSchema = Schema.Struct({});
 
 export type Compute = typeof ComputeSchema.Type;
 
-export const ComputeTaskConfigSchema = Schema.Struct({});
-export type ComputeTaskConfig = typeof ComputeTaskConfigSchema.Type;
+export const TaskResourceSchema = Schema.Struct({
+  id: Cuid2Schema,
+});
+
+export const TaskDependencySchema = Schema.Struct({
+  id: Cuid2Schema,
+});
 
 export const ComputeTaskSchema = Schema.Struct({
   id: Cuid2Schema,
-  payload: Schema.Struct({
+  config: Schema.Struct({
     script: Schema.optional(Schema.String),
     payload: Schema.optional(Schema.Any),
   }),
-  config: ComputeTaskConfigSchema,
+  result: Schema.optional(Schema.Any),
+  errors: Schema.optional(Schema.Array(Schema.Any)),
+  duration: Schema.optional(Schema.Duration),
+  resources: Schema.optional(Schema.Array(TaskResourceSchema)),
+  dependencies: Schema.optional(Schema.Array(TaskDependencySchema)),
+  timeout: Schema.optional(Schema.Duration),
 });
 
 export type ComputeTask = typeof ComputeTaskSchema.Type;

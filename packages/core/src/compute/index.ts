@@ -1,4 +1,4 @@
-import { Effect, SubscriptionRef } from "effect";
+import { Duration, Effect, SubscriptionRef } from "effect";
 import { ComputeStatus, type ComputeStatusEnum, type ComputeTask } from "./schemas";
 import { BaseLoggerService } from "../logger";
 import { ComputeManager, ComputeManagerLive } from "./manager";
@@ -26,3 +26,14 @@ export class ComputeUnit extends Effect.Service<ComputeUnit>()("@p0/core/compute
 }) {}
 
 export const ComputeUnitLive = ComputeUnit.Default;
+
+export const create = (payload: ComputeTask): ComputeTask => ({
+  id: payload.id,
+  config: payload.config ?? {},
+  result: undefined,
+  errors: [],
+  duration: Duration.zero,
+  resources: payload.resources ?? [],
+  dependencies: payload.dependencies ?? [],
+  timeout: payload.timeout ?? Duration.seconds(30),
+});
