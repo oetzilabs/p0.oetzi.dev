@@ -1,21 +1,24 @@
 import { HttpApi, HttpApiBuilder, HttpServerResponse, Path } from "@effect/platform";
 import { NotFound } from "@effect/platform/HttpApiError";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option } from "effect";
 import { AuthorizationLive } from "../middlewares/authorization";
 import { ActorRepository } from "../models/actors/repository";
 import { BrokerRepository } from "../models/brokers/repository";
+import { ComputeUnitRepository } from "../models/compute_units/repository";
 import { ServerRepository } from "../models/servers/repository";
 import { SessionRepository } from "../models/sessions/repository";
 import { ActorsGroup } from "./actors";
 import { BrokersGroup } from "./brokers";
+import { ComputeUnitsGroup } from "./compute_units";
 import { PagesGroup } from "./pages";
 import { ServersGroup } from "./servers";
 import { BearerApiSecurity, SessionGroup } from "./sessions";
-import { catchAll } from "@effect/platform/HttpRouter";
+import { ComputeUnitTaskNotFound } from "../models/compute_units/errors";
 
 export const AllApis = HttpApi.make("AllApis")
   .add(PagesGroup)
   // add the groups
+  .add(ComputeUnitsGroup)
   .add(ServersGroup)
   .add(SessionGroup)
   .add(ActorsGroup)
@@ -117,7 +120,34 @@ export const PagesApiLive = HttpApiBuilder.group(AllApis, "Pages", (handlers) =>
   })
 );
 
+export const ComputeUnitApiLive = HttpApiBuilder.group(AllApis, "ComputeUnits", (handlers) =>
+  Effect.gen(function* (_) {
+    const cur = yield* _(ComputeUnitRepository);
+    yield* Effect.log("creating ComputeUnitApiLive");
+
+    return handlers
+      .handle("register_task", (params) =>
+        Effect.gen(function* () {
+          const result = yield* cur.register(params.payload);
+          return yield* Effect.succeed(result);
+        })
+      )
+      .handle("unregister_task", (params) =>
+        Effect.gen(function* () {
+          return yield* cur.unregister(params.path.cuid);
+        })
+      )
+      .handle("run_task", (params) =>
+        Effect.gen(function* () {
+          const task = yield* cur.find_by_id(params.path.cuid);
+          return yield* cur.run(task);
+        })
+      );
+  })
+).pipe(Layer.provide(ComputeUnitRepository.Default), Layer.provide(AuthorizationLive));
+
 export const AllApisLive = HttpApiBuilder.api(AllApis).pipe(
+  Layer.provide(ComputeUnitApiLive),
   Layer.provide(PagesApiLive),
   Layer.provide(ServerApiLive),
   Layer.provide(BrokersApiLive),

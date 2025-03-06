@@ -6,13 +6,9 @@ export const ComputeSchema = Schema.Struct({});
 
 export type Compute = typeof ComputeSchema.Type;
 
-export const TaskResourceSchema = Schema.Struct({
-  id: Cuid2Schema,
-});
+export const TaskResourceSchema = Cuid2Schema;
 
-export const TaskDependencySchema = Schema.Struct({
-  id: Cuid2Schema,
-});
+export const TaskDependencySchema = Cuid2Schema;
 
 export const ComputeTaskSchema = Schema.Struct({
   id: Cuid2Schema,

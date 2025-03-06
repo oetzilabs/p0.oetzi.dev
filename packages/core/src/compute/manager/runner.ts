@@ -6,23 +6,20 @@ import { ComputeWorkerPool, ComputeWorkerPoolLive } from "./pool"; // Import wor
 
 export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/compute/runner", {
   effect: Effect.gen(function* (_) {
-    const log = yield* _(BaseLoggerService);
-    const logger = log.withGroup("compute_runner");
-
     const workerPool = yield* _(ComputeWorkerPool);
 
-    const execute = <CT extends ComputeTask>(task: CT) =>
+    const execute = (task: ComputeTask) =>
       Effect.gen(function* () {
         const execution = workerPool.execute(task.config);
-        yield* execution.pipe(
-          Stream.runForEach((output) => logger.info("compute_runner#execute:stream", "output", output))
-        );
+        // yield* execution.pipe(
+        //   Stream.runForEach((output) => Effect.log("compute_runner#execute:stream", "output", output))
+        // );
         return execution;
       });
 
     return { execute } as const;
   }),
-  dependencies: [ComputeWorkerPoolLive(15)],
+  dependencies: [ComputeWorkerPoolLive],
 }) {}
 
 export const ComputeRunnerLive = ComputeRunner.Default;

@@ -14,16 +14,16 @@
     "typescript": "5.7.3"
   },
   "dependencies": {
-    "@effect/experimental": "^0.41.2",
-    "@effect/platform": "^0.77.2",
-    "@effect/platform-bun": "^0.57.2",
-    "@effect/sql-drizzle": "^0.29.2",
+    "@effect/experimental": "^0.41.6",
+    "@effect/platform": "^0.77.6",
+    "@effect/platform-bun": "^0.57.6",
+    "@effect/sql-drizzle": "^0.29.6",
     "@libsql/client": "^0.14.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "dotenv": "^16.4.7",
-    "drizzle-orm": "^0.39.3",
+    "drizzle-orm": "^0.40.0",
     "drizzle-valibot": "^0.4.0",
-    "effect": "3.13.2",
-    "valibot": "^1.0.0-rc.1"
+    "effect": "3.13.6",
+    "valibot": "^1.0.0-rc.3"
   }
 }

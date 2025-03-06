@@ -1,7 +1,6 @@
-import { Effect, Layer, Match, Option } from "effect";
-import { BaseLoggerLive, BaseLoggerService } from "../logger";
+import { Effect, Match, Option } from "effect";
+import { BaseLoggerService } from "../logger";
 import { AppStateService } from "./app_state";
-import { BunFileSystem } from "@effect/platform-bun";
 
 export const FocusableComponents = {
   sidebar: "sidebar",
