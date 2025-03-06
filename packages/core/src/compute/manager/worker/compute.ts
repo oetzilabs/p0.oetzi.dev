@@ -4,10 +4,10 @@ import { Effect, Layer, Stream } from "effect";
 import type { ComputeTask } from "../../schemas";
 
 const WorkerLive = Effect.gen(function* () {
-  yield* Runner.make((payload: ComputeTask["payload"]) =>
+  yield* Runner.make((config: ComputeTask["config"]) =>
     Stream.fromEffect(
       Effect.gen(function* (_) {
-        const userCode = payload.script ?? ""; // Assuming payload has a 'code' property
+        const userCode = config.script ?? ""; // Assuming payload has a 'code' property
         const entryPoint = "main";
 
         // Define the allowed modules
@@ -34,7 +34,7 @@ return ${entryPoint}(payload, allowedModules);
 
         const async_fn = async () => {
           try {
-            return await sandbox(payload.payload ?? {}, allowedModules); // Pass allowedModules when calling sandbox
+            return await sandbox(config.payload ?? {}, allowedModules); // Pass allowedModules when calling sandbox
           } catch (error) {
             console.error("Error executing user code:", error);
             return { error: String(error) }; // Or handle the error as needed

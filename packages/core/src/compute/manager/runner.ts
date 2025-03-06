@@ -13,7 +13,7 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
 
     const execute = <CT extends ComputeTask>(task: CT) =>
       Effect.gen(function* () {
-        const execution = workerPool.execute(task.payload);
+        const execution = workerPool.execute(task.config);
         yield* execution.pipe(
           Stream.runForEach((output) => logger.info("compute_runner#execute:stream", "output", output))
         );
