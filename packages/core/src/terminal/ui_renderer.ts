@@ -61,7 +61,7 @@ const buildSidebarContent = (state: AppState): string => {
  * @param state - The application state.
  * @returns The output content as a string.
  */
-const buildOutputContent = (state: AppState): string => {
+const buildOutputContent = (state: AppState, maxLength = process.stdout.columns - 2): string => {
   if (state.processes.length === 0) {
     return "No processes running.";
   }
@@ -70,7 +70,7 @@ const buildOutputContent = (state: AppState): string => {
     if (state.processes.length > 0) {
       const process = state.processes[0];
       if (process) {
-        return `PID: none\n${process.output}`;
+        return `PID: none\n${wrapTextToMaxLength(process.output, maxLength)}`;
       }
     }
     return "No processes running."; // Or some other default message
@@ -78,11 +78,32 @@ const buildOutputContent = (state: AppState): string => {
     const selectedProcessId = state.selectedProcessId.value;
     const process = state.processes.find((p) => p.id === selectedProcessId);
     if (process) {
-      return `PID: ${selectedProcessId}\n${process.output}`;
+      return `PID: ${selectedProcessId}\n${wrapTextToMaxLength(process.output, maxLength)}`;
     } else {
       return "Process not found.";
     }
   }
+};
+
+/**
+ * Wraps the text into multiple lines based on a specified maximum line length.
+ *
+ * @param text - The text to wrap into multiple lines.
+ * @param maxLineLength - The maximum number of characters per line.
+ * @returns The wrapped text with new lines.
+ */
+const wrapTextToMaxLength = (text: string, maxLineLength: number): string => {
+  const lines: string[] = [];
+
+  // Split the text by lines first
+  text.split("\n").forEach((line) => {
+    // Split each line into chunks of maxLineLength
+    for (let i = 0; i < line.length; i += maxLineLength) {
+      lines.push(line.slice(i, i + maxLineLength));
+    }
+  });
+
+  return lines.join("\n");
 };
 
 /**
@@ -91,9 +112,9 @@ const buildOutputContent = (state: AppState): string => {
  * @param state - The application state.
  * @returns The errors content as a string.
  */
-const buildErrorsContent = (state: AppState): string => {
+const buildErrorsContent = (state: AppState, maxLength = process.stdout.columns - 2): string => {
   return state.processes
-    .map((p) => `[${p.id}]: ${p.errors}`)
+    .map((p) => wrapTextToMaxLength(`[${p.id}]: ${p.errors}`, maxLength))
     .filter((e) => e.length > 0)
     .join("\n");
 };
@@ -153,8 +174,8 @@ const buildLayoutString = (state: AppState, config: LayoutConfig = defaultLayout
   const outputWidth = totalWidth - (sidebarWidth + errorWidth + 4); // +4 for borders
 
   const sidebarContent = buildSidebarContent(state);
-  const outputContent = buildOutputContent(state);
-  const errorsContent = buildErrorsContent(state);
+  const outputContent = buildOutputContent(state, outputWidth);
+  const errorsContent = buildErrorsContent(state, errorWidth);
 
   const sidebarLines = sidebarContent.split("\n");
   const outputLines = outputContent.split("\n");

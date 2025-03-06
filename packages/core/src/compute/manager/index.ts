@@ -1,4 +1,4 @@
-import { Effect, Option, PubSub, Stream, SubscriptionRef } from "effect";
+import { Channel, Chunk, Effect, Option, PubSub, Stream, SubscriptionRef } from "effect";
 import { type ComputeTask } from "../schemas";
 import { ComputeRunner, ComputeRunnerLive } from "./runner";
 import { Cuid2Schema } from "../../cuid2";
@@ -55,7 +55,10 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
     // Process tasks received from the PubSub
     const process_task = (task: ComputeTask) =>
       Effect.gen(function* (_) {
-        yield* runner.execute(task);
+        const result_stream = yield* runner.execute(task);
+        const result_chunk = yield* _(Stream.runCollect(result_stream));
+        const result_array = Chunk.toArray(result_chunk);
+        return yield* Effect.succeed(result_array[0]);
       });
 
     const dequeue_task = Effect.gen(function* (_) {
