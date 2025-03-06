@@ -1,51 +1,76 @@
-import { Effect, Queue, SubscriptionRef } from "effect";
+import { Effect, Option, PubSub, Stream, SubscriptionRef } from "effect";
 import { type ComputeTask } from "../schemas";
-import { BaseLoggerService } from "../../logger";
 import { ComputeRunner, ComputeRunnerLive } from "./runner";
-import * as OS from "node:os";
+import { Cuid2Schema } from "../../cuid2";
 
+// The Compute Manager service
 export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/compute/manager", {
   effect: Effect.gen(function* (_) {
-    const log = yield* _(BaseLoggerService);
-    const logger = log.withGroup("compute_manager");
+    // Unbounded PubSub for broadcasting tasks
+    const pubSub = yield* PubSub.unbounded<ComputeTask>();
+    const dequeue = yield* PubSub.subscribe(pubSub);
 
-    // Get CPU count for queue size
-    const queue = yield* Queue.unbounded<ComputeTask>();
+    // Runner that executes tasks
     const runner = yield* _(ComputeRunner);
 
+    // Track active tasks
+    const activeTasks = yield* SubscriptionRef.make(new Map<string, ComputeTask>());
+
+    // Add a task to the PubSub
     const queue_up = (task: ComputeTask) =>
       Effect.gen(function* (_) {
-        yield* logger.info("compute_manager#queue_up", "task", JSON.stringify(task));
-        yield* queue.offer(task);
-        yield* logger.info("queue", "#capacity", queue.capacity());
-        return task.id;
+        // Publish task to all subscribers
+        yield* pubSub.publish(task);
+        // Track the task as active
+        yield* SubscriptionRef.update(activeTasks, (map) => new Map(map).set(task.id, task));
+        return yield* Effect.succeed(task.id);
       });
 
+    // Remove a task from active tasks (task completed or canceled)
+    const queue_down = (task_id: Cuid2Schema) =>
+      Effect.gen(function* (_) {
+        yield* SubscriptionRef.update(activeTasks, (map) => {
+          const newMap = new Map(map);
+          newMap.delete(task_id); // Remove task from active state
+          return newMap;
+        });
+        return yield* Effect.succeed(task_id);
+      });
+
+    // Check if a task is currently active
+    const has_task = (task_id: string) =>
+      Effect.gen(function* (_) {
+        const tasks = yield* SubscriptionRef.get(activeTasks);
+        return yield* Effect.succeed(tasks.has(task_id));
+      });
+
+    // Find a task by ID
+    const find_task = (task_id: string) =>
+      Effect.gen(function* (_) {
+        const tasks = yield* SubscriptionRef.get(activeTasks);
+        const task = tasks.get(task_id);
+        return task ? Option.some(task) : Option.none();
+      });
+
+    // Process tasks received from the PubSub
     const process_task = (task: ComputeTask) =>
       Effect.gen(function* (_) {
-        yield* logger.info("Processing task", task.id);
-        yield* logger.info("Task completed", task.id);
         yield* runner.execute(task);
       });
 
-    const start_loop = Effect.gen(function* (_) {
-      const loop = Effect.gen(function* (_) {
-        let duration = 0;
-        while (queue.isActive()) {
-          const start = Date.now();
-          const task = yield* queue.take; // Take a task from the queue (blocks if empty)
-          yield* process_task(task);
-          duration += Date.now() - start;
-        }
-      }).pipe(Effect.forever); // Keep the loop going indefinitely
+    const dequeue_task = Effect.gen(function* (_) {
+      yield* dequeue.pipe(Stream.runForEach(process_task));
+    }).pipe(Effect.forever);
 
-      // Fork the loop to run it in the background
-      yield* Effect.fork(loop);
-    });
+    yield* Effect.forkDaemon(dequeue_task);
 
-    yield* start_loop; // no need to expose this
-
-    return { queue_up } as const;
+    return {
+      queue_up,
+      queue_down,
+      has_task,
+      find_task,
+      execute: process_task,
+    } as const;
   }),
   dependencies: [ComputeRunnerLive],
 }) {}

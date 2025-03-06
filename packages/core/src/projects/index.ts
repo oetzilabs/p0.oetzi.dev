@@ -41,11 +41,7 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
 
   static PreloadSchema = Project.Schemas.fields.preloader;
 
-  static #JsonSchema = (key: SchemaVariants) =>
-    Schema.parseJson(
-      // @ts-expect-error We know that the key is a valid variant, since we are checking it in the schema.
-      Project.Schemas.fields[key]
-    );
+  static #JsonSchema = (key: SchemaVariants) => Schema.parseJson(Project.Schemas.fields[key]);
 
   static launch = (props: Omit<ProjectProps, "id" | "status"> | string) =>
     Effect.gen(function* (_) {

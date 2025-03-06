@@ -18,10 +18,10 @@
     "typescript": "5.7.3"
   },
   "dependencies": {
-    "@effect/experimental": "^0.41.2",
-    "@effect/platform": "^0.77.2",
-    "@effect/platform-bun": "^0.57.2",
-    "effect": "3.13.2"
+    "@effect/experimental": "^0.41.6",
+    "@effect/platform": "^0.77.6",
+    "@effect/platform-bun": "^0.57.6",
+    "effect": "3.13.6"
   },
   "workspaces": [
     "packages/*"
