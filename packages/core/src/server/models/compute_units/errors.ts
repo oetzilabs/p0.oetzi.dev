@@ -48,3 +48,37 @@ export class ComputeUnitTaskNotUnregistered extends Schema.TaggedError<ComputeUn
     error: Schema.String,
   }
 ) {}
+
+export class ComputeUnitBinaryNotCreated extends Schema.TaggedError<ComputeUnitBinaryNotCreated>()(
+  "ComputeUnitBinaryNotCreated",
+  {}
+) {}
+
+export class ComputeUnitBinaryAlreadyExists extends Schema.TaggedError<ComputeUnitBinaryAlreadyExists>()(
+  "ComputeUnitBinaryAlreadyExists",
+  {}
+) {}
+
+export class ComputeUnitBinaryNotDeleted extends Schema.TaggedError<ComputeUnitBinaryNotDeleted>()(
+  "ComputeUnitBinaryNotDeleted",
+  {}
+) {}
+
+export class ComputeUnitBinaryNotFound extends Schema.TaggedError<ComputeUnitBinaryNotFound>()(
+  "ComputeUnitBinaryNotFound",
+  {}
+) {}
+
+export class ComputeUnitBinaryNotUnregistered extends Schema.TaggedError<ComputeUnitBinaryNotUnregistered>()(
+  "ComputeUnitBinaryNotUnregistered",
+  {}
+) {}
+
+export class ComputeUnitBinaryAlreadyDeleted extends Schema.TaggedError<ComputeUnitBinaryAlreadyDeleted>()(
+  "ComputeUnitBinaryAlreadyDeleted",
+  {}
+) {}
+
+export class ComputeUnitNotFound extends Schema.TaggedError<ComputeUnitNotFound>()("ComputeUnitNotFound", {
+  id: Cuid2Schema,
+}) {}

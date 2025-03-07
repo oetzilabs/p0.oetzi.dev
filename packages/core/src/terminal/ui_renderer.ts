@@ -41,17 +41,20 @@ const getProcessName = (process: { id: number; name: string }, selectedProcessId
  * @param state - The application state.
  * @returns The sidebar content as a string.
  */
-const buildSidebarContent = (state: AppState): string => {
+const buildSidebarContent = (state: AppState, maxLength: number = process.stdout.columns - 2): string => {
   if (Option.isNone(state.selectedProcessId)) {
     return state.processes.map((p) => p.name).join("\n");
   } else {
-    return state.projects
-      .map((pj) => {
-        const process = state.processes.find((p) => p.name === pj.name);
-        if (!process) return pj.name;
-        return getProcessName(process, state.selectedProcessId);
-      })
-      .join("\n");
+    return wrapTextToMaxLength(
+      state.projects
+        .map((pj) => {
+          const process = state.processes.find((p) => p.name === pj.name);
+          if (!process) return pj.name;
+          return getProcessName(process, state.selectedProcessId);
+        })
+        .join("\n"),
+      maxLength
+    );
   }
 };
 

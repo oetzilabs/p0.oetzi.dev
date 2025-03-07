@@ -5,3 +5,4 @@ export * from "./schemas/actors";
 export * from "./schemas/sessions";
 export * from "./schemas/server_brokers";
 export * from "./schemas/brokers_load_balancers";
+export * from "./schemas/compute_units";

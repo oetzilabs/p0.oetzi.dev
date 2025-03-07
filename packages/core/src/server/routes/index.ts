@@ -126,21 +126,40 @@ export const ComputeUnitApiLive = HttpApiBuilder.group(AllApis, "ComputeUnits", 
     yield* Effect.log("creating ComputeUnitApiLive");
 
     return handlers
+      .handle("register_binary", (params) =>
+        Effect.gen(function* () {
+          const result = yield* cur.register_binary(params.payload);
+          return yield* Effect.succeed(result);
+        })
+      )
       .handle("register_task", (params) =>
         Effect.gen(function* () {
-          const result = yield* cur.register(params.payload);
+          const result = yield* cur.register_task(params.payload);
           return yield* Effect.succeed(result);
         })
       )
       .handle("unregister_task", (params) =>
         Effect.gen(function* () {
-          return yield* cur.unregister(params.path.cuid);
+          const task = yield* cur.find_task_by_id(params.path.cuid);
+          return yield* cur.unregister_task(task);
+        })
+      )
+      .handle("unregister_binary", (params) =>
+        Effect.gen(function* () {
+          const binary = yield* cur.find_binary_by_id(params.path.cuid);
+          return yield* cur.unregister_binary(binary);
         })
       )
       .handle("run_task", (params) =>
         Effect.gen(function* () {
-          const task = yield* cur.find_by_id(params.path.cuid);
-          return yield* cur.run(task);
+          const task = yield* cur.find_task_by_id(params.path.cuid);
+          return yield* cur.run_task(task);
+        })
+      )
+      .handle("run_binary", (params) =>
+        Effect.gen(function* () {
+          const binary = yield* cur.find_binary_by_id(params.path.cuid);
+          return yield* cur.run_binary(binary);
         })
       );
   })

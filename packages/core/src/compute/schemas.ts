@@ -10,12 +10,8 @@ export const TaskResourceSchema = Cuid2Schema;
 
 export const TaskDependencySchema = Cuid2Schema;
 
-export const ComputeTaskSchema = Schema.Struct({
+const BaseComputeSchema = Schema.Struct({
   id: Cuid2Schema,
-  config: Schema.Struct({
-    script: Schema.optional(Schema.String),
-    payload: Schema.optional(Schema.Any),
-  }),
   result: Schema.optional(Schema.Any),
   errors: Schema.optional(Schema.Array(Schema.Any)),
   duration: Schema.optional(Schema.Duration),
@@ -24,7 +20,27 @@ export const ComputeTaskSchema = Schema.Struct({
   timeout: Schema.optional(Schema.Duration),
 });
 
+export const ComputeTaskSchema = Schema.Struct({
+  ...BaseComputeSchema.fields,
+  type: Schema.Literal("task"),
+  config: Schema.Struct({
+    script: Schema.optional(Schema.String),
+    payload: Schema.optional(Schema.Any),
+  }),
+});
+
+export const ComputeBinarySchema = Schema.Struct({
+  ...BaseComputeSchema.fields,
+  type: Schema.Literal("binary"),
+  download_url: Schema.String,
+  config: Schema.Any,
+});
+
+export const ComputeUnitSchema = Schema.Union(ComputeTaskSchema, ComputeBinarySchema);
+
+export type ComputeUnit = typeof ComputeUnitSchema.Type;
 export type ComputeTask = typeof ComputeTaskSchema.Type;
+export type ComputeBinary = typeof ComputeBinarySchema.Type;
 
 export type ComputeStatusEnum = Data.TaggedEnum<{
   Uninitialized: {};
