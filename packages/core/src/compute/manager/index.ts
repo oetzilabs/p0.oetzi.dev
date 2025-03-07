@@ -1,5 +1,5 @@
 import { Channel, Chunk, Effect, Option, PubSub, Stream, SubscriptionRef } from "effect";
-import { type ComputeBinary, type ComputeTask, type ComputeUnit } from "../schemas";
+import { ComputeBinarySchema, type ComputeBinary, type ComputeTask, type ComputeUnit } from "../schemas";
 import { ComputeRunner, ComputeRunnerLive } from "./runner";
 import { Cuid2Schema } from "../../cuid2";
 import { Database, DatabaseLive } from "../../db";
@@ -9,6 +9,7 @@ import {
   ComputeUnitBinaryNotDeleted,
   ComputeUnitTaskNotCreated,
   ComputeUnitTaskNotDeleted,
+  ComputeUnitBinaryNotUpdated,
 } from "../../server/models/compute_units/errors";
 import { eq } from "drizzle-orm";
 
@@ -175,7 +176,12 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         if (binaries.length === 0) {
           return Option.none();
         }
-        return Option.some(binaries[0]);
+        const lp = binaries[0].local_path ?? undefined;
+
+        return Option.some({
+          ...binaries[0],
+          local_path: lp,
+        });
       });
 
     // Process tasks received from the PubSub
@@ -189,10 +195,34 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
 
     const process_binary = (binary: ComputeBinary) =>
       Effect.gen(function* (_) {
-        const result_stream = yield* runner.execute_binary(binary);
-        const result_chunk = yield* _(Stream.runCollect(result_stream));
+        let lp = binary.local_path;
+        if (!lp) {
+          lp = yield* runner.prepare_binary(binary);
+          // update the binary with the local path
+          const b = yield* Effect.promise(() =>
+            db
+              .update(compute_binary_units)
+              .set({
+                local_path: lp,
+              })
+              .where(eq(compute_binary_units.id, `cbu_${binary.id}`))
+              .returning()
+          );
+          if (b.length === 0) {
+            return yield* Effect.fail(new ComputeUnitBinaryNotUpdated({ id: binary.id }));
+          }
+        }
+        const updated_binary = ComputeBinarySchema.make({
+          ...binary,
+          local_path: lp,
+        });
+
+        const result_stream = yield* runner.execute_binary(updated_binary);
+        const result_chunk = yield* _(Stream.runCollect(result_stream[0]));
+        const error_chunk = yield* _(Stream.runCollect(result_stream[1]));
         const result_array = Chunk.toArray(result_chunk);
-        return yield* Effect.succeed(result_array[0]);
+        const error_array = Chunk.toArray(error_chunk);
+        return yield* Effect.succeed([result_array[0], error_array[0]]);
       });
 
     const dequeue_task = Effect.gen(function* (_) {

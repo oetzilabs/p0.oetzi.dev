@@ -97,6 +97,7 @@ export class ComputeUnitRepository extends Effect.Service<ComputeUnitRepository>
         } else {
           return ComputeBinarySchema.make({
             ...binary.value,
+
             type: "binary",
             id: Cuid2Schema.make(binary.value.id.split("_")[1]),
             config: binary.value.config,

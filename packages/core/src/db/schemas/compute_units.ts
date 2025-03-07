@@ -19,6 +19,7 @@ export const compute_binary_units = commonTable(
     // here will be parameters for the compute binary unit
     config: t.blob({ mode: "json" }).$type<ComputeBinary["config"]>().notNull(),
     download_url: t.text().notNull(),
+    local_path: t.text(),
   },
   "cbu"
 );

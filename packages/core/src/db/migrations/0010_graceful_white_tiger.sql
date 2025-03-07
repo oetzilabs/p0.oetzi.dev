@@ -1,0 +1,1 @@
+ALTER TABLE `compute_binary_units` ADD `local_path` text;

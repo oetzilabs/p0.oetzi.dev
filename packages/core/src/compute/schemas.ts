@@ -33,6 +33,7 @@ export const ComputeBinarySchema = Schema.Struct({
   ...BaseComputeSchema.fields,
   type: Schema.Literal("binary"),
   download_url: Schema.String,
+  local_path: Schema.optional(Schema.String),
   config: Schema.Any,
 });
 

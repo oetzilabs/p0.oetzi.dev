@@ -14,6 +14,7 @@ import { PagesGroup } from "./pages";
 import { ServersGroup } from "./servers";
 import { BearerApiSecurity, SessionGroup } from "./sessions";
 import { ComputeUnitTaskNotFound } from "../models/compute_units/errors";
+import { ComputeBinaryNotDownloaded, ComputeBinaryNotExecuted } from "../../compute/errors";
 
 export const AllApis = HttpApi.make("AllApis")
   .add(PagesGroup)
@@ -159,7 +160,21 @@ export const ComputeUnitApiLive = HttpApiBuilder.group(AllApis, "ComputeUnits", 
       .handle("run_binary", (params) =>
         Effect.gen(function* () {
           const binary = yield* cur.find_binary_by_id(params.path.cuid);
-          return yield* cur.run_binary(binary);
+          return yield* cur.run_binary(binary).pipe(
+            Effect.catchTags({
+              ResponseError: (e) =>
+                Effect.fail(
+                  new ComputeBinaryNotDownloaded({
+                    error: e.message,
+                  })
+                ),
+              BadArgument: (e) => Effect.fail(new ComputeBinaryNotExecuted({ error: e.message })),
+              ComputeUnitBinaryNotUpdated: (e) =>
+                Effect.fail(new ComputeBinaryNotExecuted({ error: "Unit not updated" })),
+              SystemError: (e) => Effect.fail(new ComputeBinaryNotExecuted({ error: e.message })),
+              UnknownException: (e) => Effect.fail(new ComputeBinaryNotExecuted({ error: e.message })),
+            })
+          );
         })
       );
   })

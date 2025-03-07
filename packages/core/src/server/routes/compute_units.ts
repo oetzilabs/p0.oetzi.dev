@@ -16,6 +16,7 @@ import {
   ComputeUnitBinaryNotDeleted,
   ComputeUnitBinaryNotUnregistered,
   ComputeUnitNotFound,
+  ComputeUnitBinaryNotUpdated,
 } from "../models/compute_units/errors";
 import {
   CreateComputeUnitSchema,
@@ -24,6 +25,7 @@ import {
   NullableComputeUnitSchema,
 } from "../models/compute_units/schemas";
 import { Cuid2Schema } from "../../cuid2";
+import { ComputeBinaryNotDownloaded, ComputeBinaryNotExecuted } from "../../compute/errors";
 
 const ComputeUnitIdParam = HttpApiSchema.param("cuid", Cuid2Schema);
 
@@ -130,7 +132,11 @@ export const ComputeUnitsGroup = HttpApiGroup.make("ComputeUnits")
       .addError(UnknownException, { status: 500 })
       .addError(ComputeUnitNotFound, { status: 404 })
       .addError(ComputeUnitTaskFailedExecution, { status: 400 })
+      .addError(ComputeUnitBinaryNotUpdated, { status: 400 })
+      .addError(ComputeUnitBinaryNotFound, { status: 404 })
+      .addError(ComputeBinaryNotDownloaded, { status: 400 })
       .addError(ComputeUnitTaskNotFound, { status: 404 })
+      .addError(ComputeBinaryNotExecuted, { status: 400 })
       .addSuccess(
         Schema.Any.pipe(
           HttpApiSchema.withEncoding({

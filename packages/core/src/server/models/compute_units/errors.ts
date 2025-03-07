@@ -82,3 +82,10 @@ export class ComputeUnitBinaryAlreadyDeleted extends Schema.TaggedError<ComputeU
 export class ComputeUnitNotFound extends Schema.TaggedError<ComputeUnitNotFound>()("ComputeUnitNotFound", {
   id: Cuid2Schema,
 }) {}
+
+export class ComputeUnitBinaryNotUpdated extends Schema.TaggedError<ComputeUnitBinaryNotUpdated>()(
+  "ComputeUnitBinaryNotUpdated",
+  {
+    id: Cuid2Schema,
+  }
+) {}
