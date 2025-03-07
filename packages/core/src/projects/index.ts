@@ -22,7 +22,7 @@ export type ProjectProps = {
   command?: [string, ...string[]] | string;
   start_automatically?: boolean | undefined;
   status: SubscriptionRef.SubscriptionRef<ProjectStatusEnum>;
-  environment?: Record<string, string | number | boolean>;
+  environment?: Record<string, string>;
 };
 
 type SchemaKeys = keyof typeof Project.Schemas.fields;
