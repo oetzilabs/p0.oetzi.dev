@@ -12,14 +12,8 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
     const path = yield* _(Path.Path);
     const fs = yield* _(FileSystem.FileSystem);
 
-    const execute_task = (task: ComputeTask) =>
-      Effect.gen(function* () {
-        const execution = workerPool.execute(task.config);
-        // yield* execution.pipe(
-        //   Stream.runForEach((output) => Effect.log("compute_runner#execute:stream", "output", output))
-        // );
-        return execution;
-      });
+    const execute_task = (task: ComputeTask) => workerPool.execute(task.config);
+
     const get_safe_local_path = (binary: ComputeBinary) =>
       Effect.gen(function* (_) {
         const homeDir = env.HOME || env.USERPROFILE || "/tmp"; // Fallback to /tmp
@@ -37,39 +31,43 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
       Effect.gen(function* (_) {
         const local_path = binary.local_path;
         if (!local_path) {
-          // download the binary
-          const fetcher = HttpClient.get(binary.download_url, { headers: { "User-Agent": "@p0/user-agent" } }).pipe(
-            Effect.catchTags({
-              RequestError: (e) =>
-                Effect.fail(
-                  new ComputeBinaryNotDownloaded({
-                    error: e.message,
-                  })
-                ),
-              ResponseError: (e) =>
-                Effect.fail(
-                  new ComputeBinaryNotDownloaded({
-                    error: e.message,
-                  })
-                ),
-            })
-          );
-          const response = yield* fetcher;
-          if (response.status !== 200) {
-            return yield* Effect.fail(
-              new ComputeBinaryNotDownloaded({
-                error: "Response status is not 200",
+          const is_file_protocol = binary.download_url.startsWith("file://");
+          if (!is_file_protocol) {
+            // download the binary
+            const fetcher = HttpClient.get(binary.download_url, { headers: { "User-Agent": "@p0/user-agent" } }).pipe(
+              Effect.catchTags({
+                RequestError: (e) =>
+                  Effect.fail(
+                    new ComputeBinaryNotDownloaded({
+                      error: e.message,
+                    })
+                  ),
+                ResponseError: (e) =>
+                  Effect.fail(
+                    new ComputeBinaryNotDownloaded({
+                      error: e.message,
+                    })
+                  ),
               })
             );
-          }
-          const buffer = yield* response.arrayBuffer.pipe(Effect.map((ab) => Buffer.from(ab)));
-          // convert the buffer to a file
-          const safe_local_path = yield* get_safe_local_path(binary);
-          const file_path = path.join(safe_local_path, `${binary.id}.bin`);
+            const response = yield* fetcher;
+            if (response.status !== 200) {
+              return yield* Effect.fail(
+                new ComputeBinaryNotDownloaded({
+                  error: "Response status is not 200",
+                })
+              );
+            }
+            const buffer = yield* response.arrayBuffer.pipe(Effect.map((ab) => Buffer.from(ab)));
+            // convert the buffer to a file
+            const safe_local_path = yield* get_safe_local_path(binary);
+            const file_path = path.join(safe_local_path, `${binary.id}.bin`);
 
-          // safe the buffer to the file
-          yield* Effect.try(() => fs.writeFile(file_path, buffer));
-          return file_path;
+            // safe the buffer to the file
+            yield* Effect.try(() => fs.writeFile(file_path, buffer));
+            return file_path;
+          }
+          return binary.download_url.split("file://")[1];
         }
         return local_path;
       }).pipe(Effect.scoped, Effect.provide(FetchHttpClient.layer));

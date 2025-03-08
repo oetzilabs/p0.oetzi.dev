@@ -24,15 +24,9 @@ export class ComputeUnitRepository extends Effect.Service<ComputeUnitRepository>
   effect: Effect.gen(function* (_) {
     const cm = yield* _(ComputeManager);
 
-    const run_task = (task: ComputeTask) =>
-      Effect.gen(function* (_) {
-        return yield* cm.process_task(task);
-      });
+    const run_task = (task: ComputeTask) => cm.process_task(task);
 
-    const run_binary = (binary: ComputeBinary) =>
-      Effect.gen(function* (_) {
-        return yield* cm.process_binary(binary);
-      });
+    const run_binary = (binary: ComputeBinary) => cm.process_binary(binary);
 
     const register_task = (task: ComputeTask) =>
       Effect.gen(function* (_) {
