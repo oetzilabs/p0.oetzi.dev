@@ -56,7 +56,7 @@ export class InputHandlerService extends Effect.Service<InputHandlerService>()("
                   selectedProcessId: newSelectedProcess
                     ? Option.some(newSelectedProcess.id)
                     : state.processes.length > 0
-                    ? Option.some(state.processes[0].id)
+                    ? Option.some(state.processes[0]!.id)
                     : Option.none(),
                 };
               }),
@@ -75,7 +75,7 @@ export class InputHandlerService extends Effect.Service<InputHandlerService>()("
                   selectedProcessId: newSelectedProcess
                     ? Option.some(newSelectedProcess.id)
                     : state.processes.length > 0
-                    ? Option.some(state.processes[0].id)
+                    ? Option.some(state.processes[0]!.id)
                     : Option.none(),
                 };
               }),
@@ -98,7 +98,7 @@ export class InputHandlerService extends Effect.Service<InputHandlerService>()("
                     : FocusableComponents.output,
               })),
               Match.when(InputStringToHex.question, () => ({ ...state, showHelp: !state.showHelp })),
-              Match.orElse((input) => state)
+              Match.orElse((_input) => state)
             ); // Debugging
 
             return newState;

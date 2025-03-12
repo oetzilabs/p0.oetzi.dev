@@ -1,6 +1,6 @@
-import { Data, Effect, Option, Schema, SubscriptionRef } from "effect";
-import { AppStateService, type AppState } from "./app_state";
+import { Effect, Option, SubscriptionRef } from "effect";
 import { TERMINAL_ACTIONS } from "./actions";
+import { AppStateService, type AppState } from "./app_state";
 
 interface LayoutConfig {
   sidebarWidthPercent: number;
@@ -24,18 +24,6 @@ const calculatePanelWidth = (totalWidth: number, percentage: number): number => 
 };
 
 /**
- * Retrieves the name of a process, optionally marking it as selected.
- *
- * @param process - The process object.
- * @param selectedProcessId - The ID of the currently selected process.
- * @returns The process name, optionally with a "*" suffix if selected.
- */
-const getProcessName = (process: { id: number; name: string }, selectedProcessId: Option.Option<number>): string => {
-  const isSelected = Option.isSome(selectedProcessId) && selectedProcessId.value === process.id;
-  return process.name + (isSelected ? " *" : "");
-};
-
-/**
  * Builds the content for the sidebar based on the application state.
  *
  * @param state - The application state.
@@ -51,9 +39,6 @@ const buildSidebarContent = (state: AppState, maxLength: number = process.stdout
   } else {
     // return projects and processes joined by a border, but highlight the selected process/project with a star
     const sPid = state.selectedProcessId.value;
-    const selectedProcess = state.processes.find((p) => p.id === sPid)!;
-
-    const highlight_project = (name: string) => state.projects.find((p) => p.name === name)!.name;
 
     const highlight_process = (name: string, pid: number) => {
       if (pid === sPid) {
@@ -183,9 +168,12 @@ const buildLayoutString = (state: AppState, config: LayoutConfig = defaultLayout
     }
     layout += `┃${text.padStart(padding_x).padEnd(totalWidth - 2)}┃\n`;
     for (let i = 0; i < state.processes.length; i++) {
-      const { name: pname } = state.processes[i];
-      const pad_x = Math.floor((totalWidth - pname.length) / 2) - 1;
-      layout += `┃${pname.padStart(pad_x).padEnd(totalWidth - 2)}┃\n`;
+      const p = state.processes[i];
+      if (!p) {
+        continue;
+      }
+      const pad_x = Math.floor((totalWidth - p.name.length) / 2) - 1;
+      layout += `┃${p.name.padStart(pad_x).padEnd(totalWidth - 2)}┃\n`;
     }
     for (let i = 0; i < padding_y; i++) {
       layout += padding_empty_line;

@@ -1,4 +1,4 @@
-import { Effect, Layer, SubscriptionRef } from "effect";
+import { Effect, SubscriptionRef } from "effect";
 
 // Component Definition
 export interface Component<T> {

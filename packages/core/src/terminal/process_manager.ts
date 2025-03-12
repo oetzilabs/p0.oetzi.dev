@@ -80,12 +80,13 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
                     Stream.runForEach((line) =>
                       appState.updateState((state) => {
                         const processIndex = state.processes.findIndex((p) => p.id === _process.pid);
+                        if (!processIndex) return state;
                         if (processIndex === -1) return state;
 
                         const updatedProcesses = [...state.processes];
                         updatedProcesses[processIndex] = {
-                          ...updatedProcesses[processIndex],
-                          output: updatedProcesses[processIndex].output + line + "\n",
+                          ...updatedProcesses[processIndex]!,
+                          output: updatedProcesses[processIndex]!.output + line + "\n",
                         };
 
                         return { ...state, processes: updatedProcesses };
@@ -105,8 +106,8 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
 
                         const updatedProcesses = [...state.processes];
                         updatedProcesses[processIndex] = {
-                          ...updatedProcesses[processIndex],
-                          errors: updatedProcesses[processIndex].errors + line + "\n",
+                          ...updatedProcesses[processIndex]!,
+                          errors: updatedProcesses[processIndex]!.errors + line + "\n",
                         };
 
                         return { ...state, processes: updatedProcesses };

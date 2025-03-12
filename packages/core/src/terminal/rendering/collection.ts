@@ -1,5 +1,5 @@
-import { Effect, HashMap, Ref, SubscriptionRef } from "effect";
-import { createComponent, DefaultComponent, type Component } from "./component";
+import { Effect, SubscriptionRef } from "effect";
+import { createComponent, type Component } from "./component";
 
 // Component Layers
 export const TextComponent = createComponent<string>;
@@ -72,8 +72,8 @@ export type ButtonComponent = typeof ButtonComponent;
 export type ComponentCollection = TextComponent | NumberComponent | BooleanComponent | ButtonComponent;
 
 // Example Usage
-const ExampleButton = Effect.gen(function* (_) {
-  const buttonComponent = yield* ButtonComponent("Hi :)");
-  yield* buttonComponent.on("click", ({ target }) => target.update((old_content) => old_content + "x"));
-  return buttonComponent;
-});
+// const ExampleButton = Effect.gen(function* (_) {
+//   const buttonComponent = yield* ButtonComponent("Hi :)");
+//   yield* buttonComponent.on("click", ({ target }) => target.update((old_content) => old_content + "x"));
+//   return buttonComponent;
+// });

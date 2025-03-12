@@ -1,7 +1,6 @@
 import type { ProcessId, Signal } from "@effect/platform/CommandExecutor";
 import type { PlatformError } from "@effect/platform/Error";
-import { Stream } from "effect";
-import { Effect, Option, SubscriptionRef, SynchronizedRef } from "effect";
+import { Effect, Option, Stream, SubscriptionRef } from "effect";
 import { BaseLoggerService } from "../logger";
 import type { Project } from "../projects";
 
@@ -47,7 +46,6 @@ export const initialState: AppState = {
   running: true,
 };
 
-type AppStateKeys = keyof AppState;
 type DifferenceType = {
   path: string[];
   value: { new: unknown } | unknown;
