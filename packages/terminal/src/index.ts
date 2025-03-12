@@ -55,10 +55,10 @@ const help_text = (commands: typeof subcommands) =>
   `Usage: p0 [subcommand]
 
 Subcommands:
-  ${Object.entries(commands)
-    .map(([key, value]) => `  ${key} - ${value.description}`)
-    .join("\n")}
-    
+${Object.entries(commands)
+  .map(([key, value]) => `  ${key} - ${value.description}`)
+  .join("\n")}
+
 If you are looking for the documentation, please visit https://github.com/oetzilabs/p0.oetzi.dev
 If you have any issues or suggestions, please open an issue on https://github.com/oetzilabs/p0.oetzi.dev/issues
 ` as const;
@@ -77,7 +77,7 @@ export const $internal_launcher = () =>
           Match.when({ args: (a) => a.some((x) => subcommands.help!.keys.includes(x)) }, () =>
             Effect.gen(function* () {
               // TODO: implement help
-              yield* Console.log(help_text);
+              yield* Console.log(help_text(subcommands));
               return yield* Effect.void;
             })
           ),

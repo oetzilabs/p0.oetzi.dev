@@ -22,4 +22,8 @@ bun run index.ts
 - [x] Process Management
 - [x] Project Management
 - [x] Git Management
+- [ ] Initilizing the project via a `p0.config.ts` example file.
+
+### Might consider this too
+
 - [ ] I saw a few videos about `@effect/cluster`. Might want to use it for sharding and load balancing across servers. But I am unsure if that's the right fit for what I want to build.
