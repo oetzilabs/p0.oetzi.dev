@@ -23,17 +23,42 @@ class P0ConfigCouldNotBeImported extends Schema.TaggedError<P0ConfigCouldNotBeIm
   {}
 ) {}
 
-const subcommands = {
-  help: "help",
-  init: "init",
-} as const;
+type SubCommandRecord<
+  T extends Record<
+    string,
+    {
+      keys: [string, ...string[]];
+      description: string;
+    }
+  > = {}
+> = Record<
+  string,
+  {
+    keys: [string, ...string[]];
+    description: string;
+  }
+> &
+  T;
 
-const help_text = `Usage: p0 [subcommand]
+const subcommands: SubCommandRecord = {
+  help: {
+    keys: ["--help", "-h"],
+    description: "Show this help message",
+  },
+  init: {
+    keys: ["init"],
+    description: "Initialize a new p0 project",
+  },
+};
+
+const help_text = (commands: typeof subcommands) =>
+  `Usage: p0 [subcommand]
 
 Subcommands:
-  ${subcommands.help} - Show this help message
-  ${subcommands.init} - Initialize a new p0 project
-
+  ${Object.entries(commands)
+    .map(([key, value]) => `  ${key} - ${value.description}`)
+    .join("\n")}
+    
 If you are looking for the documentation, please visit https://github.com/oetzilabs/p0.oetzi.dev
 If you have any issues or suggestions, please open an issue on https://github.com/oetzilabs/p0.oetzi.dev/issues
 ` as const;
@@ -49,14 +74,14 @@ export const $internal_launcher = () =>
         const args = process.argv.slice(2);
 
         const matcher = Match.value({ args }).pipe(
-          Match.when({ args: (a) => a.some((x) => x == `--${subcommands.help}`) }, () =>
+          Match.when({ args: (a) => a.some((x) => subcommands.help!.keys.includes(x)) }, () =>
             Effect.gen(function* () {
               // TODO: implement help
               yield* Console.log(help_text);
               return yield* Effect.void;
             })
           ),
-          Match.when({ args: (a) => a.some((x) => x == `${subcommands.init}`) }, () =>
+          Match.when({ args: (a) => a.some((x) => subcommands.init!.keys.includes(x)) }, () =>
             Effect.gen(function* () {
               // TODO: implement init
               return yield* Effect.void;
