@@ -6,14 +6,13 @@ import { TERMINAL_ACTIONS } from "./actions";
 import { AppStateService } from "./app_state";
 import { InputHandlerLive, InputHandlerService } from "./input_handler";
 import { UIRendererLive, UIRendererService } from "./ui_renderer";
-import { GitLive, GitService } from "../git";
 
 export class TerminalService extends Effect.Service<TerminalService>()("@p0/core/terminal/repo", {
   effect: Effect.gen(function* (_) {
     const appState = yield* _(AppStateService);
     const inputHandler = yield* _(InputHandlerService);
 
-    const runTUI = Effect.async((resume) => {
+    const runTUI = Effect.async((_resume) => {
       process.stdin.setRawMode(true);
       process.stdin.resume();
       process.stdin.setEncoding("utf8");
@@ -58,24 +57,24 @@ export class TerminalService extends Effect.Service<TerminalService>()("@p0/core
 
 const TerminalLive = TerminalService.Default;
 
-export type LauncherConfig = {
+export type LauncherConfig<AppName> = {
   $app: {
-    name: string;
+    name: AppName;
   };
 };
 
-export type TerminalProgramInput = {
-  name: string;
-  run: (config: LauncherConfig, launch: typeof Project.launch) => ReturnType<typeof Project.launch>[];
+export type TerminalProgramInput<AppName extends string> = {
+  name: AppName;
+  run: (config: LauncherConfig<AppName>, launch: typeof Project.launch) => ReturnType<typeof Project.launch>[];
 };
 
-export const TerminalProgram = (input: TerminalProgramInput) =>
+export const TerminalProgram = <AppName extends string>(input: TerminalProgramInput<AppName>) =>
   Effect.gen(function* (_) {
     const base_logger = yield* _(BaseLoggerService);
     const logger = base_logger.withGroup("terminal_program");
 
     const terminal = yield* _(TerminalService);
-    const app_state = yield* _(AppStateService);
+    // const app_state = yield* _(AppStateService);
     const ui_renderer = yield* _(UIRendererService);
     const pm = yield* _(ProjectManagerService);
 
@@ -116,7 +115,7 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
     let is_running = true;
     const looper = Effect.loop(undefined, {
       while: () => is_running,
-      body: (b) =>
+      body: () =>
         Effect.gen(function* (_) {
           is_running = yield* terminal.is_running;
           const layout = yield* ui_renderer.build_layout;
@@ -131,7 +130,7 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
 
     yield* Effect.loop(undefined, {
       while: () => true,
-      body: (b) =>
+      body: () =>
         Effect.gen(function* (_) {
           is_running = yield* terminal.is_running;
           if (!is_running) {

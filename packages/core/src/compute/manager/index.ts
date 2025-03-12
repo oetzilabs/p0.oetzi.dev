@@ -1,17 +1,17 @@
-import { Channel, Chunk, Effect, Option, PubSub, Stream, SubscriptionRef } from "effect";
-import { ComputeBinarySchema, type ComputeBinary, type ComputeTask, type ComputeUnit } from "../schemas";
-import { ComputeRunner, ComputeRunnerLive } from "./runner";
+import { eq } from "drizzle-orm";
+import { Chunk, Effect, Option, PubSub, Stream } from "effect";
 import { Cuid2Schema } from "../../cuid2";
 import { Database, DatabaseLive } from "../../db";
 import { compute_binary_units, compute_task_units } from "../../db/schemas/compute_units";
 import {
   ComputeUnitBinaryNotCreated,
   ComputeUnitBinaryNotDeleted,
+  ComputeUnitBinaryNotUpdated,
   ComputeUnitTaskNotCreated,
   ComputeUnitTaskNotDeleted,
-  ComputeUnitBinaryNotUpdated,
 } from "../../server/models/compute_units/errors";
-import { eq } from "drizzle-orm";
+import { ComputeBinarySchema, type ComputeBinary, type ComputeTask } from "../schemas";
+import { ComputeRunner, ComputeRunnerLive } from "./runner";
 
 // The Compute Manager service
 export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/compute/manager", {
@@ -25,38 +25,52 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
     const runner = yield* _(ComputeRunner);
 
     // Add a task to the PubSub
-    const queue_up = (unit: ComputeUnit) =>
-      Effect.gen(function* (_) {
-        switch (unit.type) {
-          case "task":
-            const tasks = yield* Effect.promise(() =>
-              db
-                .insert(compute_task_units)
-                .values({
-                  config: unit.config,
-                })
-                .returning()
-            );
-            if (tasks.length === 0) {
-              return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: unit.id }));
-            }
-            return Cuid2Schema.make(tasks[0].id.split("_")[1]);
-          case "binary":
-            const binaries = yield* Effect.promise(() =>
-              db
-                .insert(compute_binary_units)
-                .values({
-                  config: unit.config,
-                  download_url: unit.download_url,
-                })
-                .returning()
-            );
-            if (binaries.length === 0) {
-              return yield* Effect.fail(new ComputeUnitBinaryNotCreated());
-            }
-            return Cuid2Schema.make(binaries[0].id.split("_")[1]);
-        }
-      });
+    // const queue_up = (unit: ComputeUnit) =>
+    //   Effect.gen(function* (_) {
+    //     switch (unit.type) {
+    //       case "task":
+    //         const tasks = yield* Effect.promise(() =>
+    //           db
+    //             .insert(compute_task_units)
+    //             .values({
+    //               config: unit.config,
+    //             })
+    //             .returning()
+    //         );
+    //         if (tasks.length === 0) {
+    //           return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: unit.id }));
+    //         }
+    //         if (!tasks[0]) {
+    //           return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: unit.id }));
+    //         }
+    //         const tid = tasks[0].id.split("_")[1];
+    //         if (!tid) {
+    //           return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: unit.id }));
+    //         }
+    //         return Cuid2Schema.make(tid);
+    //       case "binary":
+    //         const binaries = yield* Effect.promise(() =>
+    //           db
+    //             .insert(compute_binary_units)
+    //             .values({
+    //               download_url: unit.download_url,
+    //               config: unit.config,
+    //             })
+    //             .returning()
+    //         );
+    //         if (binaries.length === 0) {
+    //           return yield* Effect.fail(new ComputeUnitBinaryNotCreated());
+    //         }
+    //         if (!binaries[0]) {
+    //           return yield* Effect.fail(new ComputeUnitBinaryNotCreated());
+    //         }
+    //         const bid = binaries[0].id.split("_")[1];
+    //         if (!bid) {
+    //           return yield* Effect.fail(new ComputeUnitBinaryNotCreated());
+    //         }
+    //         return Cuid2Schema.make(bid);
+    //     }
+    //   });
 
     // Add a task to the PubSub
     const queue_up_task = (task: ComputeTask) =>
@@ -72,7 +86,14 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         if (tasks.length === 0) {
           return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: task.id }));
         }
-        return Cuid2Schema.make(tasks[0].id.split("_")[1]);
+        if (!tasks[0]) {
+          return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: task.id }));
+        }
+        const tid = tasks[0].id.split("_")[1];
+        if (!tid) {
+          return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: task.id }));
+        }
+        return Cuid2Schema.make(tid);
       });
 
     // Add a binary to the PubSub
@@ -90,7 +111,14 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         if (binaries.length === 0) {
           return yield* Effect.fail(new ComputeUnitBinaryNotCreated({ id: binary.id }));
         }
-        return Cuid2Schema.make(binaries[0].id.split("_")[1]);
+        if (!binaries[0]) {
+          return yield* Effect.fail(new ComputeUnitBinaryNotCreated({ id: binary.id }));
+        }
+        const bid = binaries[0].id.split("_")[1];
+        if (!bid) {
+          return yield* Effect.fail(new ComputeUnitBinaryNotCreated({ id: binary.id }));
+        }
+        return Cuid2Schema.make(bid);
       });
     // Remove a task from active tasks (task completed or canceled)
     const queue_down_task = (task: ComputeTask) =>
@@ -104,7 +132,14 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         if (removed_task.length === 0) {
           return yield* Effect.fail(new ComputeUnitTaskNotDeleted());
         }
-        return Cuid2Schema.make(removed_task[0].id.split("_")[1]);
+        if (!removed_task[0]) {
+          return yield* Effect.fail(new ComputeUnitTaskNotDeleted());
+        }
+        const tid = removed_task[0].id.split("_")[1];
+        if (!tid) {
+          return yield* Effect.fail(new ComputeUnitTaskNotDeleted());
+        }
+        return Cuid2Schema.make(tid);
       });
 
     const queue_down_binary = (binary: ComputeBinary) =>
@@ -118,7 +153,14 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         if (removed_binary.length === 0) {
           return yield* Effect.fail(new ComputeUnitBinaryNotDeleted());
         }
-        return Cuid2Schema.make(removed_binary[0].id.split("_")[1]);
+        if (!removed_binary[0]) {
+          return yield* Effect.fail(new ComputeUnitBinaryNotDeleted());
+        }
+        const bid = removed_binary[0].id.split("_")[1];
+        if (!bid) {
+          return yield* Effect.fail(new ComputeUnitBinaryNotDeleted());
+        }
+        return Cuid2Schema.make(bid);
       });
 
     // Check if a task is currently active
@@ -160,7 +202,10 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         if (tasks.length === 0) {
           return Option.none();
         }
-        return Option.some(tasks[0]);
+        if (!tasks[0]) {
+          return Option.none();
+        }
+        return Option.some(tasks[0]!);
       });
 
     // Find a task by ID
@@ -176,8 +221,11 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         if (binaries.length === 0) {
           return Option.none();
         }
-        const lp = binaries[0].local_path ?? undefined;
+        if (!binaries[0]) {
+          return Option.none();
+        }
 
+        const lp = binaries[0].local_path ?? undefined;
         return Option.some({
           ...binaries[0],
           local_path: lp,

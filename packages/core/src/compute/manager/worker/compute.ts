@@ -46,7 +46,7 @@ return ${entryPoint}(payload, allowedModules);
     )
   );
 
-  yield* Effect.addFinalizer((e) => {
+  yield* Effect.addFinalizer(() => {
     return Effect.log("worker closed");
   });
 }).pipe(Layer.scopedDiscard, Layer.provide(BunWorkerRunner.layer));

@@ -129,6 +129,8 @@
     },
   },
   "trustedDependencies": [
+    "esbuild",
+    "msgpackr-extract",
     "@parcel/watcher",
   ],
   "packages": {

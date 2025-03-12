@@ -1,24 +1,8 @@
-import { worker_program } from "@p0/worker";
-import { Effect, Option, Stream } from "effect";
-import * as Chunk from "effect/Chunk";
+import { Effect, Option } from "effect";
 import { ComputeManager, ComputeManagerLive } from "../../../compute/manager";
-import {
-  ComputeBinarySchema,
-  ComputeTaskSchema,
-  type ComputeBinary,
-  type ComputeTask,
-  type ComputeUnit,
-} from "../../../compute/schemas";
-import {
-  ComputeUnitNotFound,
-  ComputeUnitBinaryAlreadyExists,
-  ComputeUnitTaskAlreadyExists,
-  ComputeUnitTaskNotCreated,
-  ComputeUnitTaskNotFound,
-  ComputeUnitTaskNotUnregistered,
-} from "./errors";
-import type { RemoveComputeUnitSchema } from "./schemas";
+import { ComputeBinarySchema, ComputeTaskSchema, type ComputeBinary, type ComputeTask } from "../../../compute/schemas";
 import { Cuid2Schema } from "../../../cuid2";
+import { ComputeUnitBinaryAlreadyExists, ComputeUnitNotFound, ComputeUnitTaskAlreadyExists } from "./errors";
 
 export class ComputeUnitRepository extends Effect.Service<ComputeUnitRepository>()("@p0/core/compute_unit/repo", {
   effect: Effect.gen(function* (_) {
@@ -73,10 +57,14 @@ export class ComputeUnitRepository extends Effect.Service<ComputeUnitRepository>
         if (Option.isNone(task)) {
           return yield* Effect.fail(new ComputeUnitNotFound({ id }));
         } else {
+          const tid = task.value.id.split("_")[1];
+          if (!tid) {
+            return yield* Effect.fail(new ComputeUnitNotFound({ id }));
+          }
           return ComputeTaskSchema.make({
             ...task.value,
             type: "task",
-            id: Cuid2Schema.make(task.value.id.split("_")[1]),
+            id: Cuid2Schema.make(tid),
             config: task.value.config,
           });
         }
@@ -89,12 +77,16 @@ export class ComputeUnitRepository extends Effect.Service<ComputeUnitRepository>
         if (Option.isNone(binary)) {
           return yield* Effect.fail(new ComputeUnitNotFound({ id }));
         } else {
+          const bid = binary.value.id.split("_")[1];
+          if (!bid) {
+            return yield* Effect.fail(new ComputeUnitNotFound({ id }));
+          }
           return ComputeBinarySchema.make({
             ...binary.value,
-
             type: "binary",
-            id: Cuid2Schema.make(binary.value.id.split("_")[1]),
+            id: Cuid2Schema.make(bid),
             config: binary.value.config,
+            download_url: binary.value.download_url,
           });
         }
       });
