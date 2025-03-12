@@ -1,17 +1,4 @@
-import { Project } from "@p0/core/src/projects";
-import { terminal_launcher } from "@p0/terminal";
+import { $internal_launcher } from "@p0/terminal";
 
-const terminal = terminal_launcher({
-  name: "asdf",
-  projects: [
-    // Project.launch("examples/projects/wo65y7c2jgw6xfp5zf2mq46o"),
-    Project.launch({
-      name: "main_server",
-      path: "packages/server/src",
-      start_automatically: true,
-      environment: {
-        PORT: "8080",
-      },
-    }),
-  ],
-});
+// check if there is a p0.config.ts file in the current directory where the user is running the command
+const program = $internal_launcher();

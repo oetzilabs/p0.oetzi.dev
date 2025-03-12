@@ -1,6 +1,6 @@
 import { Duration, Effect } from "effect";
 import { BaseLoggerLive, BaseLoggerService } from "../logger";
-import { type Project } from "../projects";
+import { Project } from "../projects";
 import { ProjectManagerLive, ProjectManagerService } from "../projects/manager";
 import { TERMINAL_ACTIONS } from "./actions";
 import { AppStateService } from "./app_state";
@@ -58,9 +58,15 @@ export class TerminalService extends Effect.Service<TerminalService>()("@p0/core
 
 const TerminalLive = TerminalService.Default;
 
+export type LauncherConfig = {
+  $app: {
+    name: string;
+  };
+};
+
 export type TerminalProgramInput = {
-  projects: ReturnType<typeof Project.launch>[];
   name: string;
+  run: (config: LauncherConfig, launch: typeof Project.launch) => ReturnType<typeof Project.launch>[];
 };
 
 export const TerminalProgram = (input: TerminalProgramInput) =>
@@ -74,7 +80,16 @@ export const TerminalProgram = (input: TerminalProgramInput) =>
     const pm = yield* _(ProjectManagerService);
 
     yield* logger.info("unknown", "Starting TUI loop");
-    const list_pjs = Effect.forEach(input.projects, (pj) =>
+    const projects = input.run(
+      {
+        $app: {
+          name: input.name,
+        },
+      },
+      Project.launch
+    );
+
+    const list_pjs = Effect.forEach(projects, (pj) =>
       Effect.catchTags(pj, {
         ProjectNotInStore: () => Effect.succeed(undefined),
         ProjectStoreDoesNotExist: () => Effect.succeed(undefined),

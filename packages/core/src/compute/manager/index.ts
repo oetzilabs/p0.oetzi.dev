@@ -216,17 +216,20 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
           ...binary,
           local_path: lp,
         });
+
         const gather_result = Effect.gen(function* (_) {
           const result_stream = yield* runner.execute_binary(updated_binary);
-          const result_chunk = yield* Stream.runCollect(result_stream[0]);
-          const error_chunk = yield* Stream.runCollect(result_stream[1]);
-          const result_array = Chunk.toArray(result_chunk);
-          const error_array = Chunk.toArray(error_chunk);
-          // remove the last `\n` from the stdout
-          const result = result_array[0]?.slice(0, -1) ?? "";
-          // remove the last `\n` from the stderr
-          const error = error_array[0]?.slice(0, -1) ?? "";
-          return yield* Effect.succeed({ stdout: result, stderr: error, exit_code: 0 });
+          return yield* Effect.all({
+            stdout: Stream.runCollect(result_stream[0]).pipe(
+              Effect.map(Chunk.toArray),
+              Effect.map((c) => c[0]?.slice(0, -1) ?? "")
+            ),
+            stderr: Stream.runCollect(result_stream[1]).pipe(
+              Effect.map(Chunk.toArray),
+              Effect.map((c) => c[0]?.slice(0, -1) ?? "")
+            ),
+            exit_code: Effect.succeed(0),
+          });
         }).pipe(Effect.catchAll((e) => Effect.succeed({ stdout: "", stderr: e.message, exit_code: 1 })));
 
         return yield* gather_result;

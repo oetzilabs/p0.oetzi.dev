@@ -42,19 +42,41 @@ const getProcessName = (process: { id: number; name: string }, selectedProcessId
  * @returns The sidebar content as a string.
  */
 const buildSidebarContent = (state: AppState, maxLength: number = process.stdout.columns - 2): string => {
+  // split by projects and processes
   if (Option.isNone(state.selectedProcessId)) {
-    return state.processes.map((p) => p.name).join("\n");
+    const projects = state.projects.map((p) => p.name).join("\n");
+    const processes = state.processes.map((p) => p.name).join("\n");
+    // return projects and processes joined by a border
+    return `Projects:\n${projects}\n${createBorder(maxLength)}\nProcesses:\n${processes}`;
   } else {
-    return wrapTextToMaxLength(
-      state.projects
-        .map((pj) => {
-          const process = state.processes.find((p) => p.name === pj.name);
-          if (!process) return pj.name;
-          return getProcessName(process, state.selectedProcessId);
-        })
-        .join("\n"),
-      maxLength
-    );
+    // return projects and processes joined by a border, but highlight the selected process/project with a star
+    const sPid = state.selectedProcessId.value;
+    const selectedProcess = state.processes.find((p) => p.id === sPid)!;
+
+    const highlight_project = (name: string) => state.projects.find((p) => p.name === name)!.name;
+
+    const highlight_process = (name: string, pid: number) => {
+      if (pid === sPid) {
+        return `${name} *`;
+      }
+      return name;
+    };
+
+    const projects = state.projects.map((p) => p.name).join("\n");
+    const processes = state.processes.map((p) => highlight_process(p.name, p.id)).join("\n");
+
+    return `Projects:\n${projects}\n${createBorder(maxLength)}\nProcesses:\n${processes}\n`;
+
+    // return wrapTextToMaxLength(
+    //   state.projects
+    //     .map((pj) => {
+    //       const process = state.processes.find((p) => p.name === pj.name);
+    //       if (!process) return pj.name;
+    //       return getProcessName(process, state.selectedProcessId);
+    //     })
+    //     .join("\n"),
+    //   maxLength
+    // );
   }
 };
 
@@ -176,7 +198,7 @@ const buildLayoutString = (state: AppState, config: LayoutConfig = defaultLayout
   const errorWidth = calculatePanelWidth(totalWidth, config.errorWidthPercent);
   const outputWidth = totalWidth - (sidebarWidth + errorWidth + 4); // +4 for borders
 
-  const sidebarContent = buildSidebarContent(state);
+  const sidebarContent = buildSidebarContent(state, sidebarWidth);
   const outputContent = buildOutputContent(state, outputWidth);
   const errorsContent = buildErrorsContent(state, errorWidth);
 
