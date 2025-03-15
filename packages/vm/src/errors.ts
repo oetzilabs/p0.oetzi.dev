@@ -4,6 +4,7 @@ export class FireCrackerDownloadFailed extends Schema.TaggedError<FireCrackerDow
   "FireCrackerDownloadFailed",
   {
     exitCode: Schema.Number,
+    message: Schema.String,
   }
 ) {}
 
@@ -31,3 +32,17 @@ export class FireCrackerVmNotCreated extends Schema.TaggedError<FireCrackerVmNot
 export class FireCrackerFailedToBoot extends Schema.TaggedError<FireCrackerFailedToBoot>()("FireCrackerFailedToBoot", {
   path: Schema.String,
 }) {}
+
+export class FireCrackerDownloadNoUrlProvided extends Schema.TaggedError<FireCrackerDownloadNoUrlProvided>()(
+  "FireCrackerDownloadNoUrlProvided",
+  {}
+) {}
+
+export class FireCrackerFailedToMakeImages extends Schema.TaggedError<FireCrackerFailedToMakeImages>()(
+  "FireCrackerFailedToMakeImages",
+  {
+    path: Schema.String,
+    message: Schema.String,
+    cause: Schema.optional(Schema.Any),
+  }
+) {}

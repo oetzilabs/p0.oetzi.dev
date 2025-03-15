@@ -1,7 +1,9 @@
-import { Command, FetchHttpClient, FileSystem, HttpBody, HttpClient, HttpClientRequest, Path } from "@effect/platform";
+import { Command, FetchHttpClient, FileSystem, HttpBody, HttpClientRequest, Path } from "@effect/platform";
 import { BunContext, BunFileSystem } from "@effect/platform-bun";
+import { downloaded_file, fetch, get_safe_path } from "@p0/core/src/utils";
+import { FileDownload } from "@p0/core/src/utils/schemas";
 import { env } from "bun";
-import { Chunk, Config, Effect, pipe, Schema, Stream } from "effect";
+import { Config, Effect, pipe, Schema } from "effect";
 import {
   FireCrackerDownloadFailed,
   FireCrackerFailedToBoot,
@@ -9,6 +11,7 @@ import {
   FireCrackerVmNotCreated,
   UnsupportedArchitecture,
 } from "./errors";
+import { setup } from "./images";
 import { VmConfigSchema, VmId, VolumeSchema, type VmConfig, type Volume } from "./schema";
 
 const FIRECRACKER_URL = "http://localhost:8080";
@@ -23,13 +26,6 @@ const DEFAULT_VM_CONFIG_OPTIONS: {
   },
   volumes: [],
 };
-
-const fetch = (request: HttpClientRequest.HttpClientRequest) =>
-  Effect.gen(function* (_) {
-    const client = yield* _(HttpClient.HttpClient);
-    const response = yield* client.execute(request);
-    return response;
-  });
 
 const createFirecrackerVM = (config: VmConfig) =>
   Effect.gen(function* (_) {
@@ -139,19 +135,6 @@ const RunSchema = Schema.Struct({
 
 type Run = Schema.Schema.Type<typeof RunSchema>;
 
-const get_safe_path = (filepath: string) =>
-  Effect.gen(function* (_) {
-    const path = yield* _(Path.Path);
-    // get home directory
-    const homeDir = env.HOME || env.USERPROFILE || "/tmp"; // Fallback to /tmp
-    return path.join(homeDir, ".p0", "vms", filepath);
-  });
-
-const streamToArray = <T>(stream: Stream.Stream<T>) =>
-  Effect.gen(function* (_) {
-    return yield* Stream.runCollect(stream).pipe(Effect.map(Chunk.toArray));
-  });
-
 /**
  * Prepare the VM environment
  * This function is responsible for checking if the VM files and binaries are present and running.
@@ -162,6 +145,7 @@ export const prepare = (version: string = "v1.10.1") =>
   Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
     const path = yield* _(Path.Path);
+    const FIRECRACKER_PORT = yield* _(Config.number("FIRECRACKER_PORT").pipe(Config.withDefault(28888)));
 
     // using firecracker-vm from github: https://github.com/firecracker-microvm/firecracker
 
@@ -175,72 +159,77 @@ export const prepare = (version: string = "v1.10.1") =>
       return yield* _(Effect.fail(UnsupportedArchitecture.make({ arch })));
     }
 
-    const download_url = `https://github.com/firecracker-microvm/firecracker/releases/download/${version}/${filename}`;
-
     const safe_path = yield* get_safe_path(filename);
-    const exists = yield* fs.exists(safe_path);
-    const file_to_download = { filename, exists, from: download_url, to: safe_path };
-
-    // Check if all files exist
-    const downloaded_file = yield* Effect.gen(function* (_) {
-      const request = HttpClientRequest.make("GET")(file_to_download.from);
-      const response = yield* fetch(request).pipe(
-        Effect.catchTag("ResponseError", () => Effect.succeed({ stream: Stream.make(new Uint8Array()) })),
-        Effect.catchTag("RequestError", () => Effect.succeed({ stream: Stream.make(new Uint8Array()) }))
-      ) as Effect.Effect<{ stream: Stream.Stream<Uint8Array<ArrayBuffer>, never, never> }, never, never>;
-      const stream = response.stream;
-      const bytes = yield* streamToArray(stream);
-      const concatted = new Uint8Array(bytes.reduce((acc, curr) => acc + curr.length, 0));
-      for (let i = 0; i < bytes.length; i++) {
-        const byte = bytes[i];
-        if (!byte) continue;
-        concatted.set(byte, i * byte.length);
-      }
-      yield* fs.writeFile(file_to_download.to, concatted);
-      return yield* Effect.succeed(file_to_download);
-    }).pipe(Effect.catchAll(() => Effect.succeed({ ...file_to_download, exists: false })));
-
-    if (!downloaded_file.exists) {
-      return yield* Effect.fail(FireCrackerDownloadFailed.make({ exitCode: 1 }));
-    }
-
-    const firecracker_folder = downloaded_file.to.replace(".tgz", "");
-
-    // extract the files
-    const exitCode = yield* pipe(
-      Command.make("tar", `-xf ${downloaded_file.to} -C ${firecracker_folder}`),
-      Command.exitCode
+    const safe_path_dir = path.dirname(safe_path);
+    const firecracker_folder = path.join(safe_path_dir, "firecracker");
+    const executable = path.join(
+      firecracker_folder,
+      filename.replace(".tgz", "").replace("firecracker-", "release-"),
+      filename.replace(".tgz", "")
     );
-
-    if (exitCode !== 0) {
-      return yield* Effect.fail(FireCrackerDownloadFailed.make({ exitCode }));
+    const executable_exists = yield* fs.exists(executable);
+    const firecracker_folder_exists = yield* fs.exists(firecracker_folder);
+    if (!firecracker_folder_exists) {
+      yield* fs.makeDirectory(firecracker_folder, { recursive: true });
     }
-    const executable = path.join(firecracker_folder, "firecracker");
-    // make the file executable
-    const chmod_exitCode = yield* pipe(Command.make("chmod", `+x ${executable}`), Command.exitCode);
+
+    // check if the safe_path directory exists
+    const safe_path_exists = yield* fs.exists(safe_path_dir);
+    if (!safe_path_exists) {
+      yield* fs.makeDirectory(safe_path_dir, { recursive: true });
+    }
+
+    const firecracker_microvm_file_download = FileDownload.make({
+      filename,
+      exists: firecracker_folder_exists,
+      from: new URL(`https://github.com/firecracker-microvm/firecracker/releases/download/${version}/${filename}`),
+      to: safe_path,
+    });
+
+    const firecracker_vm = yield* downloaded_file(firecracker_microvm_file_download);
+
+    if (!firecracker_vm.exists) {
+      return yield* Effect.fail(
+        FireCrackerDownloadFailed.make({ exitCode: 1, message: "Firecracker download failed" })
+      );
+    }
+
+    if (!executable_exists) {
+      const exitCode = yield* pipe(
+        Command.make("tar", "-xf", firecracker_vm.to, "-C", firecracker_folder).pipe(Command.exitCode),
+        Effect.catchTags({
+          // BadArgument: (e) => Effect.fail(FireCrackerDownloadFailed.make({ exitCode, message: e.message })),
+          // SystemError: (e) => Effect.fail(FireCrackerDownloadFailed.make({ exitCode, message: e.message })),
+        })
+      );
+
+      if (exitCode !== 0) {
+        return yield* Effect.fail(FireCrackerDownloadFailed.make({ exitCode, message: "tar -xf failed" }));
+      }
+    }
+
+    const chmod_exitCode = yield* Command.make("chmod", "+x", executable).pipe(Command.exitCode);
 
     if (chmod_exitCode !== 0) {
-      return yield* Effect.fail(FireCrackerFailedToMakeExecutable.make({ path: downloaded_file.to }));
+      return yield* Effect.fail(FireCrackerFailedToMakeExecutable.make({ path: executable }));
     }
 
-    // boot the firecracker binary
-    const firecracker_port = yield* Config.number("FIRECRACKER_PORT").pipe(Config.withDefault(28888));
+    const { kernelPath, rootfsPath } = yield* setup();
+
     const boot_exitCode = yield* pipe(
-      Command.make(executable, `--socket-path /tmp/firecracker.sock --port ${firecracker_port}`),
+      Command.make(
+        executable,
+        `--socket-path /tmp/firecracker.sock --port ${FIRECRACKER_PORT} --kernel ${kernelPath} --rootfs ${rootfsPath}`
+      ),
       Command.exitCode
     );
 
     if (boot_exitCode !== 0) {
-      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: downloaded_file.to }));
+      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: executable }));
     }
 
     return executable;
-  }).pipe(
-    Effect.scoped,
-    Effect.provide(BunFileSystem.layer),
-    Effect.provide(FetchHttpClient.layer),
-    Effect.provide(BunContext.layer)
-  );
+  }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer), Effect.provide(BunContext.layer));
 
 export const run = (run: Run) =>
   Effect.gen(function* (_) {

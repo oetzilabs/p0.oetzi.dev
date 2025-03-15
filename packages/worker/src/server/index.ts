@@ -6,6 +6,7 @@ import { worker_program } from "..";
 
 const worker_stream = Stream.make(
   create({
+    type: "task",
     id: cuid2(),
     config: {
       payload: {},
