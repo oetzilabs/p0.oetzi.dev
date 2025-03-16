@@ -2,7 +2,6 @@ import { Command, FileSystem, Path } from "@effect/platform";
 import { downloaded_file, get_safe_path } from "@p0/core/src/utils";
 import { FileDownload } from "@p0/core/src/utils/schemas";
 import { Config, Effect, pipe, Stream } from "effect";
-import os from "node:os";
 import { FireCrackerFailedToMakeImages } from "./errors";
 
 const run_command = (com: Command.Command) =>
@@ -21,7 +20,7 @@ const run_command = (com: Command.Command) =>
 
           // Accumulate output from stderr
           yield* stderrStream.pipe(
-            Stream.runForEach((line) => Effect.log(line)),
+            Stream.runForEach((line) => Effect.logError(line)),
             Effect.fork
           );
           return _process;
@@ -33,21 +32,57 @@ const run_command = (com: Command.Command) =>
 
 const buildBuildroot = (buildrootPath: string) =>
   Effect.gen(function* (_) {
-    const PATH =
-      process.env.PATH?.split(process.platform === "win32" ? ";" : ":")
-        .filter((p) => !p.includes(" ")) // Remove paths with spaces
-        .join(process.platform === "win32" ? ";" : ":") || "";
-    yield* Effect.log(`Building Buildroot in ${buildrootPath}... This will take some time, please be patient.`); // -s to silence output
-    // yield* Effect.log(`PATH=${PATH} make -s -j${os.cpus().length}`);
-    const com = Command.make("make", "-s", `-j${os.cpus().length}`, `PARALLEL_JOBS=${os.cpus().length}`).pipe(
+    const fs = yield* _(FileSystem.FileSystem);
+    const path = yield* _(Path.Path);
+    const separator = process.platform === "win32" ? ";" : ":";
+
+    const PathConfig = yield* Config.string("PATH").pipe(Config.withDefault(""));
+    const PATH = PathConfig.split(separator)
+      .filter((p) => !p.includes(" "))
+      .join(separator);
+
+    yield* Effect.log(`Building Buildroot in ${buildrootPath}... This will take some time, please be patient.`);
+
+    // yield* Effect.log(`Setting alldefconfig first.`);
+    // check if the firecracker_defconfig file exists(firecracker_defconfig_path);
+    // const alldefconfig_command = Command.make("make", "-s", "alldefconfig").pipe(
+    //   Command.workingDirectory(buildrootPath),
+    //   Command.env({
+    //     PATH,
+    //   })
+    // );
+    // yield* run_command(alldefconfig_command);
+
+    yield* fs.makeDirectory(path.join(buildrootPath, "output", "target", "usr", "libexec"), { recursive: true });
+
+    // check if the .firecracker.config exists in the cwd
+    const firecracker_config_path = path.join(process.cwd(), ".firecracker.config");
+    const fcc_exists = yield* fs.exists(firecracker_config_path);
+    if (!fcc_exists) {
+      return yield* Effect.fail(
+        FireCrackerFailedToMakeImages.make({ message: ".firecracker.config not found", path: firecracker_config_path })
+      );
+    }
+    // copy the .firecracker.config to the buildroot directory
+    yield* fs.copyFile(firecracker_config_path, path.join(buildrootPath, ".config"));
+
+    const com = Command.make("make", "-s").pipe(
       Command.workingDirectory(buildrootPath),
       Command.env({
         PATH,
       })
     );
-    const _process = yield* run_command(com);
+    const build_command = yield* run_command(com);
 
-    return _process;
+    const linux_com = Command.make("make", "-s", "linux-rebuild").pipe(
+      Command.workingDirectory(buildrootPath),
+      Command.env({
+        PATH,
+      })
+    );
+    yield* run_command(linux_com);
+
+    return build_command;
   });
 
 const configureBuildroot = (buildrootPath: string) =>
@@ -68,7 +103,7 @@ const configureBuildroot = (buildrootPath: string) =>
     return yield* run_command(com);
   });
 
-const downloadAndExtractBuildroot = (setupDir: string, version: string = "2024.11.2") =>
+const downloadAndExtractBuildroot = (setupDir: string, version: string = "2024.08.3") =>
   Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
     const path = yield* _(Path.Path);
@@ -117,6 +152,7 @@ export const setup = (setupDir: string = "./firecracker-setup") =>
     yield* Effect.log("Buildroot config complete: ", configure_buildroot_exit_code);
 
     const buildroot_process = yield* buildBuildroot(buildrootDir);
+
     const buildroot_process_exit_code = yield* buildroot_process.exitCode;
 
     yield* Effect.log("Buildroot build complete: ", buildroot_process_exit_code);
@@ -125,9 +161,9 @@ export const setup = (setupDir: string = "./firecracker-setup") =>
     const kernelPath = path.join(buildrootDir, "output", "images", "vmlinux");
     const rootfsPath = path.join(buildrootDir, "output", "images", "rootfs.ext2");
 
-    Effect.log("\nFirecracker setup complete!");
-    Effect.log(`Kernel image path: ${kernelPath}`);
-    Effect.log(`Root filesystem path: ${rootfsPath}`);
+    yield* Effect.log("\nFirecracker setup complete!");
+    yield* Effect.log(`Kernel image path: ${kernelPath}`);
+    yield* Effect.log(`Root filesystem path: ${rootfsPath}`);
 
     return { kernelPath, rootfsPath };
   });

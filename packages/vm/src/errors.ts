@@ -31,6 +31,7 @@ export class FireCrackerVmNotCreated extends Schema.TaggedError<FireCrackerVmNot
 
 export class FireCrackerFailedToBoot extends Schema.TaggedError<FireCrackerFailedToBoot>()("FireCrackerFailedToBoot", {
   path: Schema.String,
+  message: Schema.String,
 }) {}
 
 export class FireCrackerDownloadNoUrlProvided extends Schema.TaggedError<FireCrackerDownloadNoUrlProvided>()(

@@ -179,3 +179,4 @@ db.test.sqlite
 projects
 
 log.jsonl
+.firecracker.config

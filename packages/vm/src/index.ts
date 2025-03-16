@@ -2,7 +2,6 @@ import { Command, FetchHttpClient, FileSystem, HttpBody, HttpClientRequest, Path
 import { BunContext, BunFileSystem } from "@effect/platform-bun";
 import { downloaded_file, fetch, get_safe_path } from "@p0/core/src/utils";
 import { FileDownload } from "@p0/core/src/utils/schemas";
-import { env } from "bun";
 import { Config, Effect, pipe, Schema } from "effect";
 import {
   FireCrackerDownloadFailed,
@@ -216,6 +215,19 @@ export const prepare = (version: string = "v1.10.1") =>
 
     const { kernelPath, rootfsPath } = yield* setup();
 
+    const kernel_exist = yield* fs.exists(kernelPath);
+    const rootfs_exist = yield* fs.exists(rootfsPath);
+
+    if (!kernel_exist) {
+      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: executable, message: "Kernel image not found" }));
+    }
+
+    if (!rootfs_exist) {
+      return yield* Effect.fail(
+        FireCrackerFailedToBoot.make({ path: executable, message: "Root filesystem not found" })
+      );
+    }
+
     const boot_exitCode = yield* pipe(
       Command.make(
         executable,
@@ -225,7 +237,7 @@ export const prepare = (version: string = "v1.10.1") =>
     );
 
     if (boot_exitCode !== 0) {
-      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: executable }));
+      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: executable, message: "Failed to boot VM" }));
     }
 
     return executable;
