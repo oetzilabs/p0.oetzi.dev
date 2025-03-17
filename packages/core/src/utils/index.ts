@@ -58,6 +58,11 @@ export const get_safe_path = (filepath: string) =>
     const path = yield* _(Path.Path);
     // get home directory
     const homeDir = env.HOME || env.USERPROFILE || "/tmp"; // Fallback to /tmp
+
+    const is_absolute = path.isAbsolute(filepath);
+    if (is_absolute) {
+      return filepath;
+    }
     return path.join(homeDir, ".p0", "vms", filepath);
   });
 

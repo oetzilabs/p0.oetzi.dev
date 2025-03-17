@@ -1,6 +1,6 @@
 import { Command, FetchHttpClient, FileSystem, HttpBody, HttpClientRequest, Path } from "@effect/platform";
 import { BunContext, BunFileSystem } from "@effect/platform-bun";
-import { downloaded_file, fetch, get_safe_path } from "@p0/core/src/utils";
+import { downloaded_file, fetch, get_safe_path, run_command } from "@p0/core/src/utils";
 import { FileDownload } from "@p0/core/src/utils/schemas";
 import { Config, Effect, pipe, Schema } from "effect";
 import {
@@ -149,99 +149,29 @@ export const prepare = (version: string = "v1.10.1") =>
     // using firecracker-vm from github: https://github.com/firecracker-microvm/firecracker
 
     const arch = process.arch;
-    let filename: string;
-    if (arch === "x64") {
-      filename = `firecracker-${version}-x86_64.tgz`;
-    } else if (arch === "arm64") {
-      filename = `firecracker-${version}-aarch64.tgz`;
-    } else {
-      return yield* _(Effect.fail(UnsupportedArchitecture.make({ arch })));
+
+    const vms_safe_path = yield* get_safe_path("prepare");
+
+    const vms_folder_exists = yield* fs.exists(vms_safe_path);
+    if (!vms_folder_exists) {
+      yield* fs.makeDirectory(vms_safe_path, { recursive: true });
     }
 
-    const safe_path = yield* get_safe_path(filename);
-    const safe_path_dir = path.dirname(safe_path);
-    const firecracker_folder = path.join(safe_path_dir, "firecracker");
-    const executable = path.join(
-      firecracker_folder,
-      filename.replace(".tgz", "").replace("firecracker-", "release-"),
-      filename.replace(".tgz", "")
+    const { vmlinux, firecracker, rootfs } = yield* setup(vms_safe_path);
+
+    const firecracker_com = Command.make(
+      firecracker,
+      `--socket-path /tmp/firecracker.sock --port ${FIRECRACKER_PORT} --kernel ${vmlinux} --rootfs ${rootfs}`
     );
-    const executable_exists = yield* fs.exists(executable);
-    const firecracker_folder_exists = yield* fs.exists(firecracker_folder);
-    if (!firecracker_folder_exists) {
-      yield* fs.makeDirectory(firecracker_folder, { recursive: true });
-    }
 
-    // check if the safe_path directory exists
-    const safe_path_exists = yield* fs.exists(safe_path_dir);
-    if (!safe_path_exists) {
-      yield* fs.makeDirectory(safe_path_dir, { recursive: true });
-    }
-
-    const firecracker_microvm_file_download = FileDownload.make({
-      filename,
-      exists: firecracker_folder_exists,
-      from: new URL(`https://github.com/firecracker-microvm/firecracker/releases/download/${version}/${filename}`),
-      to: safe_path,
-    });
-
-    const firecracker_vm = yield* downloaded_file(firecracker_microvm_file_download);
-
-    if (!firecracker_vm.exists) {
-      return yield* Effect.fail(
-        FireCrackerDownloadFailed.make({ exitCode: 1, message: "Firecracker download failed" })
-      );
-    }
-
-    if (!executable_exists) {
-      const exitCode = yield* pipe(
-        Command.make("tar", "-xf", firecracker_vm.to, "-C", firecracker_folder).pipe(Command.exitCode),
-        Effect.catchTags({
-          // BadArgument: (e) => Effect.fail(FireCrackerDownloadFailed.make({ exitCode, message: e.message })),
-          // SystemError: (e) => Effect.fail(FireCrackerDownloadFailed.make({ exitCode, message: e.message })),
-        })
-      );
-
-      if (exitCode !== 0) {
-        return yield* Effect.fail(FireCrackerDownloadFailed.make({ exitCode, message: "tar -xf failed" }));
-      }
-    }
-
-    const chmod_exitCode = yield* Command.make("chmod", "+x", executable).pipe(Command.exitCode);
-
-    if (chmod_exitCode !== 0) {
-      return yield* Effect.fail(FireCrackerFailedToMakeExecutable.make({ path: executable }));
-    }
-
-    const { kernelPath, rootfsPath } = yield* setup();
-
-    const kernel_exist = yield* fs.exists(kernelPath);
-
-    if (!kernel_exist) {
-      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: executable, message: "Kernel image not found" }));
-    }
-
-    const rootfs_exist = yield* fs.exists(rootfsPath);
-
-    if (!rootfs_exist) {
-      return yield* Effect.fail(
-        FireCrackerFailedToBoot.make({ path: executable, message: "Root filesystem not found" })
-      );
-    }
-
-    const boot_exitCode = yield* pipe(
-      Command.make(
-        executable,
-        `--socket-path /tmp/firecracker.sock --port ${FIRECRACKER_PORT} --kernel ${kernelPath} --rootfs ${rootfsPath}`
-      ),
-      Command.exitCode
-    );
+    const boot_process = yield* run_command(firecracker_com);
+    const boot_exitCode = yield* boot_process.exitCode;
 
     if (boot_exitCode !== 0) {
-      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: executable, message: "Failed to boot VM" }));
+      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to boot VM" }));
     }
 
-    return executable;
+    return boot_exitCode;
   }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer), Effect.provide(BunContext.layer));
 
 export const run = (run: Run) =>
