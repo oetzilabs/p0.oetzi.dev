@@ -161,7 +161,14 @@ export const prepare = (version: string = "v1.10.1") =>
 
     const firecracker_com = Command.make(
       firecracker,
-      `--socket-path /tmp/firecracker.sock --port ${FIRECRACKER_PORT} --kernel ${vmlinux} --rootfs ${rootfs}`
+      "--api-sock",
+      "/tmp/firecracker.sock",
+      // "--port",
+      // String(FIRECRACKER_PORT),
+      "--kernel",
+      vmlinux,
+      "--rootfs",
+      rootfs
     );
 
     const boot_process = yield* run_command(firecracker_com);
