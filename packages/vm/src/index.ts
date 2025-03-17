@@ -1,15 +1,8 @@
 import { Command, FetchHttpClient, FileSystem, HttpBody, HttpClientRequest, Path } from "@effect/platform";
 import { BunContext, BunFileSystem } from "@effect/platform-bun";
-import { downloaded_file, fetch, get_safe_path, run_command } from "@p0/core/src/utils";
-import { FileDownload } from "@p0/core/src/utils/schemas";
-import { Config, Effect, pipe, Schema } from "effect";
-import {
-  FireCrackerDownloadFailed,
-  FireCrackerFailedToBoot,
-  FireCrackerFailedToMakeExecutable,
-  FireCrackerVmNotCreated,
-  UnsupportedArchitecture,
-} from "./errors";
+import { fetch, get_safe_path, run_command } from "@p0/core/src/utils";
+import { Config, Effect, Schema } from "effect";
+import { FireCrackerFailedToBoot, FireCrackerVmNotCreated } from "./errors";
 import { setup } from "./images";
 import { VmConfigSchema, VmId, VolumeSchema, type VmConfig, type Volume } from "./schema";
 
@@ -140,15 +133,10 @@ type Run = Schema.Schema.Type<typeof RunSchema>;
  * It will be called before the run function.
  *
  */
-export const prepare = (version: string = "v1.10.1") =>
+export const prepare = () =>
   Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
-    const path = yield* _(Path.Path);
     const FIRECRACKER_PORT = yield* _(Config.number("FIRECRACKER_PORT").pipe(Config.withDefault(28888)));
-
-    // using firecracker-vm from github: https://github.com/firecracker-microvm/firecracker
-
-    const arch = process.arch;
 
     const vms_safe_path = yield* get_safe_path("prepare");
 
@@ -158,27 +146,32 @@ export const prepare = (version: string = "v1.10.1") =>
     }
 
     const { vmlinux, firecracker, rootfs } = yield* setup(vms_safe_path);
+    const forked_firecracker = yield* Effect.gen(function* (_) {
+      const firecracker_com = Command.make(firecracker, "--api-sock", "/tmp/firecracker.sock").pipe(
+        Command.runInShell(true)
+      );
 
-    const firecracker_com = Command.make(
-      firecracker,
-      "--api-sock",
-      "/tmp/firecracker.sock",
-      // "--port",
-      // String(FIRECRACKER_PORT),
-      "--kernel",
-      vmlinux,
-      "--rootfs",
-      rootfs
+      const boot_process = yield* run_command(firecracker_com);
+      const boot_exitCode = yield* boot_process.exitCode;
+
+      if (boot_exitCode !== 0) {
+        return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to boot VM" }));
+      }
+    }).pipe(Effect.fork);
+
+    const forward_port = Command.make(
+      "socat",
+      `TCP-LISTEN:${FIRECRACKER_PORT},fork`,
+      `UNIX-CONNECT:/tmp/firecracker.sock`
     );
+    const forward_process = yield* run_command(forward_port);
+    const forward_exitCode = yield* forward_process.exitCode;
 
-    const boot_process = yield* run_command(firecracker_com);
-    const boot_exitCode = yield* boot_process.exitCode;
-
-    if (boot_exitCode !== 0) {
-      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to boot VM" }));
+    if (forward_exitCode !== 0) {
+      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to forward port" }));
     }
 
-    return boot_exitCode;
+    return forward_exitCode;
   }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer), Effect.provide(BunContext.layer));
 
 export const run = (run: Run) =>
