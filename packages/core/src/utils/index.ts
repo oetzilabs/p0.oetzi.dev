@@ -1,5 +1,5 @@
-import { FetchHttpClient, FileSystem, HttpClient, HttpClientRequest, Path } from "@effect/platform";
-import { Chunk, Effect, Stream } from "effect";
+import { Command, FetchHttpClient, FileSystem, HttpClient, HttpClientRequest, Path } from "@effect/platform";
+import { Chunk, Effect, pipe, Stream } from "effect";
 import { DownloadNoUrlProvided } from "./errors";
 import type { FileDownload } from "./schemas";
 import { BunContext, BunFileSystem } from "@effect/platform-bun";
@@ -59,4 +59,30 @@ export const get_safe_path = (filepath: string) =>
     // get home directory
     const homeDir = env.HOME || env.USERPROFILE || "/tmp"; // Fallback to /tmp
     return path.join(homeDir, ".p0", "vms", filepath);
+  });
+
+export const run_command = (com: Command.Command) =>
+  Effect.gen(function* (_) {
+    const _process = yield* pipe(
+      Command.start(com),
+      Effect.flatMap((_process) =>
+        Effect.gen(function* (_) {
+          const stdoutStream = _process.stdout.pipe(Stream.decodeText("utf8"));
+          const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));
+
+          yield* stdoutStream.pipe(
+            Stream.runForEach((line) => Effect.log(line)),
+            Effect.fork
+          );
+
+          // Accumulate output from stderr
+          yield* stderrStream.pipe(
+            Stream.runForEach((line) => Effect.logError(line)),
+            Effect.fork
+          );
+          return _process;
+        })
+      )
+    );
+    return _process;
   });
