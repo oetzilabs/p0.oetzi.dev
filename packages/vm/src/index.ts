@@ -216,11 +216,12 @@ export const prepare = (version: string = "v1.10.1") =>
     const { kernelPath, rootfsPath } = yield* setup();
 
     const kernel_exist = yield* fs.exists(kernelPath);
-    const rootfs_exist = yield* fs.exists(rootfsPath);
 
     if (!kernel_exist) {
       return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: executable, message: "Kernel image not found" }));
     }
+
+    const rootfs_exist = yield* fs.exists(rootfsPath);
 
     if (!rootfs_exist) {
       return yield* Effect.fail(

@@ -96,7 +96,7 @@ const buildLinux = (linuxPath: string) =>
     return build_command;
   });
 
-const buildLinuxRootfs = (firecrackerPath: string) =>
+const buildLinuxRootfs = (firecrackerPath: string, linuxVersion: string = "6.1") =>
   Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
     const path = yield* _(Path.Path);
@@ -129,8 +129,7 @@ const buildLinuxRootfs = (firecrackerPath: string) =>
       }
     }
 
-    // command is: `./tools/devtool build_ci_artifacts rootfs`
-    const com = Command.make("./tools/devtool", "build_ci_artifacts", "rootfs").pipe(
+    const com = Command.make("./tools/devtool", "build_ci_artifacts", "rootfs", linuxVersion).pipe(
       Command.workingDirectory(path.join(firecrackerPath, "firecracker")),
       Command.env({
         PATH,
