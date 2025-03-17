@@ -146,23 +146,22 @@ export const prepare = () =>
     }
 
     const { vmlinux, firecracker, rootfs } = yield* setup(vms_safe_path);
-    const forked_firecracker = yield* Effect.gen(function* (_) {
-      const firecracker_com = Command.make(firecracker, "--api-sock", "/tmp/firecracker.sock").pipe(
-        Command.runInShell(true)
-      );
 
-      const boot_process = yield* run_command(firecracker_com);
-      const boot_exitCode = yield* boot_process.exitCode;
+    const firecracker_com = Command.make(firecracker, "--api-sock", "/tmp/firecracker.sock").pipe(
+      Command.runInShell(true)
+    );
 
-      if (boot_exitCode !== 0) {
-        return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to boot VM" }));
-      }
-    }).pipe(Effect.fork);
+    const boot_process = yield* run_command(firecracker_com);
+    const boot_exitCode = yield* boot_process.exitCode;
+
+    if (boot_exitCode !== 0) {
+      return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to boot VM" }));
+    }
 
     const forward_port = Command.make(
       "socat",
-      `TCP-LISTEN:${FIRECRACKER_PORT},fork`,
-      `UNIX-CONNECT:/tmp/firecracker.sock`
+      `TCP-LISTEN:127.0.0.1:${FIRECRACKER_PORT},fork`,
+      `TCP:localhost:${FIRECRACKER_PORT}`
     );
     const forward_process = yield* run_command(forward_port);
     const forward_exitCode = yield* forward_process.exitCode;
@@ -171,7 +170,7 @@ export const prepare = () =>
       return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to forward port" }));
     }
 
-    return forward_exitCode;
+    return boot_exitCode;
   }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer), Effect.provide(BunContext.layer));
 
 export const run = (run: Run) =>
