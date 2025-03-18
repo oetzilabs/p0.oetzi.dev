@@ -8,14 +8,8 @@ const downloadLinux = (setupDir: string, linux_version: string = "6.1.102", fire
   Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
     const path = yield* _(Path.Path);
-    const separator = process.platform === "win32" ? ";" : ":";
 
     const arch = process.arch === "x64" ? "x86_64" : "aarch64";
-
-    const PathConfig = yield* Config.string("PATH").pipe(Config.withDefault(""));
-    const PATH = PathConfig.split(separator)
-      .filter((p) => !p.includes(" "))
-      .join(separator);
 
     const filename = `linux-${firecracker_version}-${arch}-${linux_version}`;
 
@@ -38,7 +32,6 @@ const downloadLinux = (setupDir: string, linux_version: string = "6.1.102", fire
 
     return path.join(linuxDir, filename); // Return the path to the extracted Linux
   });
-type Architecture = typeof process.arch;
 const downloadLinks = {
   x64: {
     "v1.11": {
@@ -204,7 +197,7 @@ const downloadFirecrackerBinary = (setupDirectory: string, version: string = "")
 
     const firecracker_file_exists = yield* fs.exists(downloadPath);
     if (!firecracker_file_exists) {
-      const firecrackerFile = yield* downloaded_file(fc_d);
+      yield* downloaded_file(fc_d);
 
       yield* Effect.log(`Untaring the ${downloadPath}`);
 
@@ -238,7 +231,6 @@ const getMainVersion = <V extends keyof (typeof downloadLinks)["x64"]>(version: 
 export const setup = (setupDir: string = "./firecracker-setup") =>
   Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
-    const path = yield* _(Path.Path);
     const FIRECRACKER_SETUP_DIR = yield* Config.string("FIRECRACKER_SETUP_DIR").pipe(Config.withDefault(setupDir));
     const FIRECRACKER_VERSION = yield* Config.string("FIRECRACKER_VERSION").pipe(Config.withDefault("v1.11"));
     const FIRECRACKER_MAIN_VERSION = getMainVersion(FIRECRACKER_VERSION as keyof (typeof downloadLinks)["x64"]);
