@@ -4,19 +4,21 @@ import { fetch, get_safe_path, run_command } from "@p0/core/src/utils";
 import { Config, Effect, Schema } from "effect";
 import { FireCrackerFailedToBoot, FireCrackerVmNotCreated } from "./errors";
 import { setup } from "./images";
-import { VmConfigSchema, VmId, VolumeSchema, type VmConfig, type Volume } from "./schema";
+import { VmConfigSchema, VmId, VolumeSchema, type NetworkInterface, type VmConfig, type Volume } from "./schema";
 
 const FIRECRACKER_URL = "http://localhost:8080";
 
 const DEFAULT_VM_CONFIG_OPTIONS: {
   resources: { cpu: number; memory: number };
   volumes: Volume[];
+  network_interfaces: NetworkInterface[];
 } = {
   resources: {
     cpu: 1,
     memory: 128,
   },
   volumes: [],
+  network_interfaces: [],
 };
 
 const createFirecrackerVM = (config: VmConfig) =>
@@ -73,7 +75,7 @@ const getHostDrives = () =>
     return drives;
   });
 
-const createVmConfiguration = (config: typeof DEFAULT_VM_CONFIG_OPTIONS) =>
+const createVmConfiguration = (os_ext4: `${string}.ext4`, config: typeof DEFAULT_VM_CONFIG_OPTIONS) =>
   Effect.gen(function* (_) {
     const mergedConfig = { ...DEFAULT_VM_CONFIG_OPTIONS, ...config };
 
@@ -87,18 +89,18 @@ const createVmConfiguration = (config: typeof DEFAULT_VM_CONFIG_OPTIONS) =>
       drives: [
         {
           drive_id: "rootfs",
-          path_on_host: "/path/to/your/rootfs.ext4",
+          path_on_host: os_ext4,
           is_read_only: false,
           is_root_device: true,
         },
         ...host_drives,
       ],
       network_interfaces: [
-        {
-          iface_id: "eth0",
-          guest_mac: "AA:BB:CC:DD:EE:FF",
-          host_dev_name: "tap0",
-        },
+        // {
+        //   iface_id: "eth0",
+        //   guest_mac: "AA:BB:CC:DD:EE:FF",
+        //   host_dev_name: "tap0",
+        // },
       ],
       machine_config: {
         vcpu_count: mergedConfig.resources?.cpu || 1,
@@ -112,6 +114,7 @@ const RunSchema = Schema.Struct({
   code: Schema.String,
   language: Schema.String,
   config: Schema.Struct({
+    os: Schema.Union(Schema.Literal("ubuntu-24.04.ext4")),
     timeout: Schema.optional(Schema.Number),
     persistent: Schema.optional(Schema.Boolean),
     volumes: Schema.optional(Schema.mutable(Schema.Array(VolumeSchema))),
@@ -147,37 +150,71 @@ export const prepare = () =>
 
     const { vmlinux, firecracker, rootfs } = yield* setup(vms_safe_path);
 
-    const firecracker_com = Command.make(firecracker, "--api-sock", "/tmp/firecracker.sock").pipe(
+    yield* Effect.log("Firecracker binary is located at: " + firecracker);
+    yield* Effect.log("VMLinux file is located at: " + vmlinux);
+    yield* Effect.log("RootFS file is located at: " + rootfs);
+    const FIRECRACKER_SOCKET_PATH = yield* _(
+      Config.string("FIRECRACKER_SOCKET_PATH").pipe(Config.withDefault("/tmp/firecracker.sock"))
+    );
+
+    const firecracker_socket_path = yield* get_safe_path(FIRECRACKER_SOCKET_PATH);
+
+    const firecracker_socket_path_exists = yield* fs.exists(firecracker_socket_path);
+    if (firecracker_socket_path_exists) {
+      // check if the socket is being used `fuser -v /tmp/firecracker.sock`
+      const fuser_process = yield* run_command(Command.make("fuser", "-v", firecracker_socket_path), true);
+      const fuser_exitCode = yield* fuser_process.exitCode;
+      if (fuser_exitCode === 0) {
+        // if the socket is being used, kill the process
+        const kill_process = yield* run_command(Command.make("fuser", "-k", firecracker_socket_path), true);
+        const kill_exitCode = yield* kill_process.exitCode;
+        if (kill_exitCode !== 0) {
+          return yield* Effect.fail(
+            FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to kill fuser process" })
+          );
+        }
+        yield* fs.remove(firecracker_socket_path, { force: true });
+      }
+    }
+
+    const firecracker_com = Command.make(firecracker, "--api-sock", firecracker_socket_path).pipe(
       Command.runInShell(true)
     );
 
-    const boot_process = yield* run_command(firecracker_com);
-    const boot_exitCode = yield* boot_process.exitCode;
+    const forward_port_cmd = Command.make(
+      "socat",
+      `TCP-LISTEN:${FIRECRACKER_PORT},fork,reuseaddr`,
+      `UNIX-CONNECT:${firecracker_socket_path}`
+    );
 
-    if (boot_exitCode !== 0) {
+    const { boot_process, forward_port } = yield* Effect.all({
+      boot_process: run_command(firecracker_com),
+      forward_port: run_command(forward_port_cmd),
+    });
+    const firecracker_is_running = yield* boot_process.isRunning;
+    if (!firecracker_is_running) {
       return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to boot VM" }));
     }
+    yield* Effect.log(`Firecracker is running (PID:${boot_process.pid})`);
 
-    const forward_port = Command.make(
-      "socat",
-      `TCP-LISTEN:127.0.0.1:${FIRECRACKER_PORT},fork`,
-      `TCP:localhost:${FIRECRACKER_PORT}`
-    );
-    const forward_process = yield* run_command(forward_port);
-    const forward_exitCode = yield* forward_process.exitCode;
+    const port_forward_is_running = yield* forward_port.isRunning;
 
-    if (forward_exitCode !== 0) {
+    if (!port_forward_is_running) {
       return yield* Effect.fail(FireCrackerFailedToBoot.make({ path: firecracker, message: "Failed to forward port" }));
     }
+    yield* Effect.log(`Port forwarding is running (PID:${forward_port.pid})`);
 
-    return boot_exitCode;
+    return;
   }).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer), Effect.provide(BunContext.layer));
 
 export const run = (run: Run) =>
   Effect.gen(function* (_) {
+    const path = yield* _(Path.Path);
     // 1. Create VM config (adjust based on 'config')
+    const vms_safe_path = yield* get_safe_path("prepare");
     const mergedConfig = { ...DEFAULT_VM_CONFIG_OPTIONS, ...run.config, persistent: run.config.persistent ?? false };
-    const vmConfig = yield* createVmConfiguration(mergedConfig);
+    const os_ext4 = (yield* get_safe_path(path.join(vms_safe_path, run.config.os))) as `${string}.ext4`;
+    const vmConfig = yield* createVmConfiguration(os_ext4, mergedConfig);
 
     // 2. Launch VM
     const firecracker = yield* createFirecrackerVM(vmConfig);

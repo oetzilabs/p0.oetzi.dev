@@ -66,7 +66,7 @@ export const get_safe_path = (filepath: string) =>
     return path.join(homeDir, ".p0", "vms", filepath);
   });
 
-export const run_command = (com: Command.Command) =>
+export const run_command = (com: Command.Command, ignore_logging: boolean = false) =>
   Effect.gen(function* (_) {
     const _process = yield* pipe(
       Command.start(com),
@@ -76,13 +76,13 @@ export const run_command = (com: Command.Command) =>
           const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));
 
           yield* stdoutStream.pipe(
-            Stream.runForEach((line) => Effect.log(line)),
+            Stream.runForEach((line) => (ignore_logging ? Effect.void : Effect.log(line))),
             Effect.fork
           );
 
           // Accumulate output from stderr
           yield* stderrStream.pipe(
-            Stream.runForEach((line) => Effect.logError(line)),
+            Stream.runForEach((line) => (ignore_logging ? Effect.void : Effect.logError(line))),
             Effect.fork
           );
           return _process;
