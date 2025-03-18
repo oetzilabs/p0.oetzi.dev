@@ -1,7 +1,7 @@
-import { Config, Effect, Layer, Logger } from "effect";
 import { FileSystem, Path, PlatformLogger } from "@effect/platform";
 import { BunFileSystem } from "@effect/platform-bun";
 import type { PlatformError } from "@effect/platform/Error";
+import { Config, Effect, Logger } from "effect";
 
 export type LoggerCollection = {
   info: (area: string, ...rest: any[]) => Effect.Effect<void, PlatformError, never>;

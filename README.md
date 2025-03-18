@@ -22,6 +22,7 @@ bun run index.ts
 - [x] Process Management
 - [x] Project Management
 - [x] Git Management
+- [ ] Firecracker VM Management [Video Tutorial (DJ Ware)](https://youtu.be/As9LO6XBfkA)
 - [ ] Initilizing the project via a `p0.config.ts` example file.
 
 ### Might consider this too
