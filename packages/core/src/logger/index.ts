@@ -1,6 +1,14 @@
 import { Config, Effect, Layer, Logger } from "effect";
 import { FileSystem, Path, PlatformLogger } from "@effect/platform";
 import { BunFileSystem } from "@effect/platform-bun";
+import type { PlatformError } from "@effect/platform/Error";
+
+export type LoggerCollection = {
+  info: (area: string, ...rest: any[]) => Effect.Effect<void, PlatformError, never>;
+  warn: (area: string, ...rest: any[]) => Effect.Effect<void, PlatformError, never>;
+  error: (area: string, ...rest: any[]) => Effect.Effect<void, PlatformError, never>;
+  debug: (area: string, ...rest: any[]) => Effect.Effect<void, PlatformError, never>;
+};
 
 export class BaseLoggerService extends Effect.Service<BaseLoggerService>()("@p0/core/logger/base_logger", {
   effect: Effect.gen(function* (_) {
@@ -37,7 +45,7 @@ export class BaseLoggerService extends Effect.Service<BaseLoggerService>()("@p0/
         with_debug && is_debug_level(type, "all") ? writeLog(format(type, group, area, ...rest)) : Effect.void;
 
     return {
-      withGroup: (group: string) => ({
+      withGroup: (group: string): LoggerCollection => ({
         info: log("info", group),
         warn: log("warn", group),
         error: log("error", group),

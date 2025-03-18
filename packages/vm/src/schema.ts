@@ -51,3 +51,23 @@ export type VmConfig = Schema.Schema.Type<typeof VmConfigSchema>;
 
 export const VmId = Schema.String.pipe(Schema.brand("VmId"));
 export type VmId = typeof VmId.Type;
+
+export const RunSchema = Schema.Struct({
+  code: Schema.String,
+  language: Schema.String,
+  config: Schema.Struct({
+    os: Schema.Union(Schema.Literal("ubuntu-24.04.ext4")),
+    timeout: Schema.optional(Schema.Number),
+    persistent: Schema.optional(Schema.Boolean),
+    volumes: Schema.optional(Schema.mutable(Schema.Array(VolumeSchema))),
+    dependencies: Schema.optional(Schema.Array(Schema.String)),
+    resources: Schema.optional(
+      Schema.Struct({
+        cpu: Schema.Number,
+        memory: Schema.Number,
+      })
+    ),
+  }),
+});
+
+export type Run = Schema.Schema.Type<typeof RunSchema>;

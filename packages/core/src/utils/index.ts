@@ -4,6 +4,7 @@ import { DownloadNoUrlProvided } from "./errors";
 import type { FileDownload } from "./schemas";
 import { BunContext, BunFileSystem } from "@effect/platform-bun";
 import { env } from "bun";
+import type { LoggerCollection } from "../logger";
 
 export const streamToArray = <T>(stream: Stream.Stream<T>) =>
   Effect.gen(function* (_) {
@@ -83,6 +84,32 @@ export const run_command = (com: Command.Command, ignore_logging: boolean = fals
           // Accumulate output from stderr
           yield* stderrStream.pipe(
             Stream.runForEach((line) => (ignore_logging ? Effect.void : Effect.logError(line))),
+            Effect.fork
+          );
+          return _process;
+        })
+      )
+    );
+    return _process;
+  });
+
+export const run_command_withLogger = (com: Command.Command, area: string, logger: LoggerCollection) =>
+  Effect.gen(function* (_) {
+    const _process = yield* pipe(
+      Command.start(com),
+      Effect.flatMap((_process) =>
+        Effect.gen(function* (_) {
+          const stdoutStream = _process.stdout.pipe(Stream.decodeText("utf8"));
+          const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));
+
+          yield* stdoutStream.pipe(
+            Stream.runForEach((line) => logger.info(area, line)),
+            Effect.fork
+          );
+
+          // Accumulate output from stderr
+          yield* stderrStream.pipe(
+            Stream.runForEach((line) => logger.error(area, line)),
             Effect.fork
           );
           return _process;

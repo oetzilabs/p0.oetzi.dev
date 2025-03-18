@@ -1,7 +1,7 @@
 import { HttpApiBuilder, HttpApiSwagger, HttpMiddleware, HttpServer } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { AllApisLive } from "@p0/core/src/server/routes";
-import { Effect, Layer } from "effect";
+import { Layer } from "effect";
 
 export const HttpLive = HttpApiBuilder.serve(HttpMiddleware.logger).pipe(
   Layer.provide(
