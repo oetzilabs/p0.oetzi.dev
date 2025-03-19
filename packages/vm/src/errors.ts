@@ -26,7 +26,9 @@ export class FireCrackerFailedToMakeExecutable extends Schema.TaggedError<FireCr
 
 export class FireCrackerVmNotCreated extends Schema.TaggedError<FireCrackerVmNotCreated>()(
   "FireCrackerVmNotCreated",
-  {}
+  {
+    message: Schema.String,
+  }
 ) {}
 
 export class FireCrackerFailedToBoot extends Schema.TaggedError<FireCrackerFailedToBoot>()("FireCrackerFailedToBoot", {
