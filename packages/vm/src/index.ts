@@ -241,7 +241,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           );
         }
 
-        return path.join(setupDirectory, "squashfs-root", "root", "ubuntu-24.04.ext4");
+        return path.join(setupDirectory, "ubuntu-24.04.ext4");
       });
 
     const downloadFirecrackerBinary = (setupDirectory: string, version: string = "v1.10") =>
@@ -421,8 +421,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         // get the pid of the firecracker process
         const firecrackerPid = yield* Command.make("fuser", "-v", firecrackerSocketPath).pipe(env, Command.string);
-        const firecrackerPidLines = yield* Command.make("fuser", "-v", firecrackerSocketPath).pipe(env, Command.lines);
-        yield* logger.info("prepare", "fuser output", firecrackerPid, firecrackerPidLines);
+        yield* logger.info("prepare", "fuser output", firecrackerPid);
         const fcPif = Number.parseInt(firecrackerPid);
         if (Number.isNaN(fcPif)) {
           yield* logger.error("prepare", "Failed to get firecracker pid");
@@ -439,12 +438,14 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const createFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
         // first boot-source
+        yield* logger.info("createFirecrackerVM", "boot-source", JSON.stringify(config.boot_source));
         const bootSourceResponse = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/boot-source`, config.boot_source);
 
         if (bootSourceResponse.status !== 204) {
           return yield* Effect.fail(FireCrackerVmNotCreated.make({ message: "Failed to create VM" }));
         }
         // then drives
+        yield* logger.info("createFirecrackerVM", "drives", JSON.stringify(config.drives));
         const drivesResponse = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/drives`, config.drives);
 
         if (drivesResponse.status !== 204) {
@@ -452,6 +453,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         }
 
         // then network-interfaces
+        yield* logger.info("createFirecrackerVM", "network-interfaces", JSON.stringify(config.network_interfaces));
         const networkInterfacesResponse = yield* socket_fetch(
           "PUT",
           `${FIRECRACKER_URL}/network-interfaces`,
@@ -463,6 +465,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         }
 
         // then machine-config
+        yield* logger.info("createFirecrackerVM", "machine-config", JSON.stringify(config.machine_config));
         const machineConfigResponse = yield* socket_fetch(
           "PUT",
           `${FIRECRACKER_URL}/machine-config`,
@@ -474,6 +477,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         }
 
         // then volumes
+        yield* logger.info("createFirecrackerVM", "volumes", JSON.stringify(config.volumes));
         const volumesResponse = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/volumes`, config.volumes);
 
         if (volumesResponse.status !== 204) {
@@ -485,7 +489,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       });
 
     const socket_fetch = (method: string, url: string, body: any) =>
-      Effect.promise((signal) =>
+      Effect.tryPromise((signal) =>
         undici_fetch(url, {
           method,
           dispatcher,
@@ -595,6 +599,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const run = (run: Run) =>
       Effect.gen(function* (_) {
+        yield* logger.info("run", "starting run");
         const mergedConfig = {
           ...DEFAULT_VM_CONFIG_OPTIONS,
           ...run.config,
@@ -602,6 +607,8 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         };
         const os_ext4 = (yield* get_safe_path(path.join(vmsSafePath, run.config.os))) as `${string}.ext4`;
         const arch = process.arch === "x64" ? "x86_64" : "aarch64";
+
+        yield* logger.info("run", "creating vm configuration");
         const vmConfig = yield* createVmConfiguration(
           os_ext4,
           mergedConfig,
@@ -610,13 +617,16 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           mergedConfig.linux
         );
 
+        yield* logger.info("run", "creating firecracker vm");
         const firecracker_vmid = yield* createFirecrackerVM(vmConfig);
 
+        yield* logger.info("run", "starting firecracker vm");
         yield* startFirecrackerVM(firecracker_vmid);
 
         // const executionResult = yield* executeCodeInVM(vmId, language, config.timeout || 10);
 
         if (!mergedConfig.persistent) {
+          yield* logger.info("run", "destroying firecracker vm");
           yield* destroyFirecrackerVM(firecracker_vmid);
         }
 
