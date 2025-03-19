@@ -1,10 +1,26 @@
-import { Command, FileSystem, HttpBody, HttpClientRequest, Path } from "@effect/platform";
+import { Command, FileSystem, Path } from "@effect/platform";
+import { cuid2 } from "@p0/core/src/cuid2";
 import { BaseLoggerLive, BaseLoggerService } from "@p0/core/src/logger";
-import { downloaded_file, fetch, get_safe_path, run_command, run_command_withLogger } from "@p0/core/src/utils";
-import { Config, Effect, Ref } from "effect";
-import { FireCrackerDownloadFailed, FireCrackerFailedToBoot, FireCrackerVmNotCreated } from "./errors";
-import { VmConfigSchema, VmId, type NetworkInterface, type Run, type VmConfig, type Volume } from "./schema";
+import { downloaded_file, get_safe_path, run_command, run_command_withLogger } from "@p0/core/src/utils";
 import { FileDownload } from "@p0/core/src/utils/schemas";
+import { Config, Effect, Ref } from "effect";
+import { Agent, fetch as undici_fetch } from "undici";
+import {
+  FireCrackerDownloadFailed,
+  FireCrackerFailedToBoot,
+  FireCrackerFailedToStartVM,
+  FireCrackerVmNotCreated,
+} from "./errors";
+import {
+  DriveSchema,
+  VmConfigSchema,
+  VmId,
+  type Drive,
+  type NetworkInterface,
+  type Run,
+  type VmConfig,
+  type Volume,
+} from "./schema";
 
 export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p0/vm/firecracker/repo", {
   effect: Effect.gen(function* (_) {
@@ -43,11 +59,14 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         },
       },
     } as const;
+
     const DEFAULT_VM_CONFIG_OPTIONS: {
+      linux: string;
       resources: { cpu: number; memory: number };
       volumes: Volume[];
       network_interfaces: NetworkInterface[];
     } = {
+      linux: "6.1.102",
       resources: {
         cpu: 1,
         memory: 128,
@@ -55,11 +74,17 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       volumes: [],
       network_interfaces: [],
     };
-    const FIRECRACKER_URL = "http://localhost:8080";
     const FIRECRACKER_PORT = yield* _(Config.number("FIRECRACKER_PORT").pipe(Config.withDefault(28888)));
+    const FIRECRACKER_URL = `http://localhost:${FIRECRACKER_PORT}`;
+    const FIRECRACKER_VERSION = yield* Config.string("FIRECRACKER_VERSION").pipe(Config.withDefault("v1.11"));
     const FIRECRACKER_SOCKET_PATH = yield* _(
       Config.string("FIRECRACKER_SOCKET_PATH").pipe(Config.withDefault("/tmp/firecracker.sock"))
     );
+    const dispatcher = new Agent({
+      connect: {
+        socketPath: FIRECRACKER_SOCKET_PATH,
+      },
+    });
 
     // Refs
     const firecrackerPidRef = yield* Ref.make(0);
@@ -73,7 +98,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const downloadLinux = (
       setupDir: string,
       linux_version: string = "6.1.102",
-      firecracker_version: string = "v1.10.1"
+      firecracker_version: string = "v1.10"
     ) =>
       Effect.gen(function* (_) {
         const fs = yield* _(FileSystem.FileSystem);
@@ -83,9 +108,10 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         const filename = `linux-${firecracker_version}-${arch}-${linux_version}`;
 
+        //example: https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/x86_64/vmlinux-6.1.102
         const LINUX_URL = `https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/${firecracker_version}/${arch}/vmlinux-${linux_version}`;
 
-        const linuxDir = path.join(setupDir, `linux-${arch}-${linux_version}`);
+        const linuxDir = path.join(setupDir, `linux-${firecracker_version}-${arch}-${linux_version}`);
         const linuxDirExists = yield* fs.exists(linuxDir);
 
         if (!linuxDirExists) {
@@ -218,7 +244,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         return path.join(setupDirectory, "squashfs-root", "root", "ubuntu-24.04.ext4");
       });
 
-    const downloadFirecrackerBinary = (setupDirectory: string, version: string = "") =>
+    const downloadFirecrackerBinary = (setupDirectory: string, version: string = "v1.10") =>
       Effect.gen(function* (_) {
         const fs = yield* _(FileSystem.FileSystem);
         const separator = process.platform === "win32" ? ";" : ":";
@@ -301,7 +327,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           yield* fs.makeDirectory(starting_dir, { recursive: true });
         }
 
-        const vmlinux = yield* downloadLinux(starting_dir, FIRECRACKER_LINUX_VERSION);
+        const vmlinux = yield* downloadLinux(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
         const rootfs = yield* downloadRootfs(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
         const firecracker = yield* downloadFirecrackerBinary(starting_dir, FIRECRACKER_VERSION);
 
@@ -412,45 +438,101 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const createFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
-        const body = yield* HttpBody.json(config);
-        const request = HttpClientRequest.make("PUT")(`${FIRECRACKER_URL}/vms`, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body,
-        });
-        const response = yield* fetch(request)
-          .pipe(Effect.map((data: any) => ({ vm_id: VmId.make(data.vm_id) })))
-          .pipe(
-            Effect.catchTags({
-              ResponseError: (e) => Effect.fail(FireCrackerVmNotCreated.make({ cause: e })),
-            })
-          );
-        return response;
+        // first boot-source
+        const bootSourceResponse = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/boot-source`, config.boot_source);
+
+        if (bootSourceResponse.status !== 204) {
+          return yield* Effect.fail(FireCrackerVmNotCreated.make({ message: "Failed to create VM" }));
+        }
+        // then drives
+        const drivesResponse = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/drives`, config.drives);
+
+        if (drivesResponse.status !== 204) {
+          return yield* Effect.fail(FireCrackerVmNotCreated.make({ message: "Failed to create VM" }));
+        }
+
+        // then network-interfaces
+        const networkInterfacesResponse = yield* socket_fetch(
+          "PUT",
+          `${FIRECRACKER_URL}/network-interfaces`,
+          config.network_interfaces
+        );
+
+        if (networkInterfacesResponse.status !== 204) {
+          return yield* Effect.fail(FireCrackerVmNotCreated.make({ message: "Failed to create VM" }));
+        }
+
+        // then machine-config
+        const machineConfigResponse = yield* socket_fetch(
+          "PUT",
+          `${FIRECRACKER_URL}/machine-config`,
+          config.machine_config
+        );
+
+        if (machineConfigResponse.status !== 204) {
+          return yield* Effect.fail(FireCrackerVmNotCreated.make({ message: "Failed to create VM" }));
+        }
+
+        // then volumes
+        const volumesResponse = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/volumes`, config.volumes);
+
+        if (volumesResponse.status !== 204) {
+          return yield* Effect.fail(FireCrackerVmNotCreated.make({ message: "Failed to create VM" }));
+        }
+
+        // return the vmId
+        return VmId.make(cuid2());
       });
+
+    const socket_fetch = (method: string, url: string, body: any) =>
+      Effect.promise((signal) =>
+        undici_fetch(url, {
+          method,
+          dispatcher,
+          body: JSON.stringify(body),
+          signal,
+        })
+      );
 
     const startFirecrackerVM = (vmId: string) =>
       Effect.gen(function* (_) {
-        const body = yield* HttpBody.json({ action_type: "InstanceStart" });
-        const request = HttpClientRequest.make("PUT")(`${FIRECRACKER_URL}/vms/${vmId}/actions`, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body,
+        // unix-socket send action
+
+        const response = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/vms/${vmId}/actions`, {
+          action_type: "InstanceStart",
         });
 
-        return fetch(request);
+        if (response.status !== 200) {
+          return yield* Effect.fail(FireCrackerFailedToStartVM.make({ message: "Failed to start VM", vmId }));
+        }
+
+        return yield* Effect.promise(() => response.text());
       });
 
-    const createVmConfiguration = (os_ext4: `${string}.ext4`, config: typeof DEFAULT_VM_CONFIG_OPTIONS) =>
+    const createVmConfiguration = (
+      os_ext4: `${string}.ext4`,
+      config: typeof DEFAULT_VM_CONFIG_OPTIONS,
+      firecracker_version: string,
+      arch: string,
+      linux_version: string
+    ) =>
       Effect.gen(function* (_) {
         const mergedConfig = { ...DEFAULT_VM_CONFIG_OPTIONS, ...config };
 
-        const host_drives = yield* getHostDrives();
+        const host_drives = yield* getHostDrives().pipe(
+          Effect.catchTags({
+            SystemError: () => Effect.succeed([] as Drive[]),
+            BadArgument: () => Effect.succeed([] as Drive[]),
+          })
+        );
+
+        const vmlinux = yield* get_safe_path(
+          path.join(vmsSafePath, `linux-${firecracker_version}-${arch}-${linux_version}`)
+        );
 
         return VmConfigSchema.make({
           boot_source: {
-            kernel_image_path: "/path/to/your/kernel",
+            kernel_image_path: vmlinux,
             boot_args: "console=ttyS0 noapic reboot=k panic=1 pci=off nomodules",
           },
           drives: [
@@ -477,6 +559,19 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         });
       });
 
+    const destroyFirecrackerVM = (_vmId: string) =>
+      Effect.gen(function* (_) {
+        const response = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/actions`, {
+          action_type: "SendCtrlAltDel",
+        });
+
+        if (response.status !== 204) {
+          return yield* Effect.fail(FireCrackerVmNotCreated.make({ message: "Failed to destroy VM" }));
+        }
+
+        return yield* Effect.promise(() => response.text());
+      });
+
     const getHostDrives = () =>
       Effect.gen(function* (_) {
         const fs = yield* _(FileSystem.FileSystem);
@@ -486,7 +581,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
             Effect.gen(function* (_) {
               const is_read_only = ((yield* fs.stat(d)).mode & 0o444) === 0o444;
               const is_root_device = ((yield* fs.stat(d)).mode & 0o4000) === 0o4000;
-              return { drive_id: d, is_read_only, is_root_device, path_on_host: `/dev/disk/by-id/${d}` };
+              return DriveSchema.make({
+                drive_id: d,
+                is_read_only,
+                is_root_device,
+                path_on_host: `/dev/disk/by-id/${d}`,
+              });
             })
           )
         );
@@ -501,19 +601,24 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           persistent: run.config.persistent ?? false,
         };
         const os_ext4 = (yield* get_safe_path(path.join(vmsSafePath, run.config.os))) as `${string}.ext4`;
-        const vmConfig = yield* createVmConfiguration(os_ext4, mergedConfig);
+        const arch = process.arch === "x64" ? "x86_64" : "aarch64";
+        const vmConfig = yield* createVmConfiguration(
+          os_ext4,
+          mergedConfig,
+          FIRECRACKER_VERSION,
+          arch,
+          mergedConfig.linux
+        );
 
-        const firecracker = yield* createFirecrackerVM(vmConfig);
+        const firecracker_vmid = yield* createFirecrackerVM(vmConfig);
 
-        yield* startFirecrackerVM(firecracker.vm_id);
-
-        // yield* transferCodeToVM(vmId, code, language);
+        yield* startFirecrackerVM(firecracker_vmid);
 
         // const executionResult = yield* executeCodeInVM(vmId, language, config.timeout || 10);
 
-        // if (!mergedConfig.persistent) {
-        //   yield* destroyFirecrackerVM(firecracker.vm_id);
-        // }
+        if (!mergedConfig.persistent) {
+          yield* destroyFirecrackerVM(firecracker_vmid);
+        }
 
         // return executionResult;
         return yield* Effect.void;

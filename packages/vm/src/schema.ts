@@ -34,7 +34,8 @@ export type MachineConfig = Schema.Schema.Type<typeof MachineConfigSchema>;
 
 export const BootSourceSchema = Schema.Struct({
   kernel_image_path: Schema.String,
-  boot_args: Schema.String,
+  initrd_path: Schema.optional(Schema.String),
+  boot_args: Schema.optional(Schema.String),
 });
 
 export type BootSource = Schema.Schema.Type<typeof BootSourceSchema>;
@@ -60,6 +61,7 @@ export const RunSchema = Schema.Struct({
     timeout: Schema.optional(Schema.Number),
     persistent: Schema.optional(Schema.Boolean),
     volumes: Schema.optional(Schema.mutable(Schema.Array(VolumeSchema))),
+    network_interfaces: Schema.optional(Schema.mutable(Schema.Array(NetworkInterfaceSchema))),
     dependencies: Schema.optional(Schema.Array(Schema.String)),
     resources: Schema.optional(
       Schema.Struct({

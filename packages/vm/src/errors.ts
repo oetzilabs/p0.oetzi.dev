@@ -47,3 +47,11 @@ export class FireCrackerFailedToMakeImages extends Schema.TaggedError<FireCracke
     cause: Schema.optional(Schema.Any),
   }
 ) {}
+
+export class FireCrackerFailedToStartVM extends Schema.TaggedError<FireCrackerFailedToStartVM>()(
+  "FireCrackerFailedToStartVM",
+  {
+    vmId: Schema.String,
+    message: Schema.String,
+  }
+) {}
