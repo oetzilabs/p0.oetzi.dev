@@ -41,6 +41,18 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     });
     yield* logger.info("composer", "Starting Firecracker composer");
 
+    // helper functions
+    const getMainVersion = <V extends keyof (typeof DOWNLOAD_LINKS)["x64"]>(version: V) => {
+      const versionParts = version.split(".") as [string, string, string] | [string, string];
+      if (versionParts.length === 3) {
+        return `${versionParts[0]}.${versionParts[1]}` as V;
+      }
+      if (versionParts.length === 2) {
+        return `${versionParts[0]}.${versionParts[1]}` as V;
+      }
+      return version;
+    };
+
     // Constants
     const DOWNLOAD_LINKS = {
       x64: {
@@ -75,9 +87,14 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       volumes: [],
       network_interfaces: [],
     };
+    const FIRECRACKER_SETUP_DIR = yield* Config.string("FIRECRACKER_SETUP_DIR").pipe(Config.withDefault("./firecracker-setup"));
+    const FIRECRACKER_LINUX_VERSION = yield* Config.string("FIRECRACKER_LINUX_VERSION").pipe(
+      Config.withDefault("6.1.102")
+    );
     const FIRECRACKER_PORT = yield* _(Config.number("FIRECRACKER_PORT").pipe(Config.withDefault(28888)));
-    const FIRECRACKER_URL = `http://localhost:${FIRECRACKER_PORT}`;
+    const FIRECRACKER_URL = `http://localhost`;
     const FIRECRACKER_VERSION = yield* Config.string("FIRECRACKER_VERSION").pipe(Config.withDefault("v1.11"));
+    const FIRECRACKER_MAIN_VERSION = getMainVersion(FIRECRACKER_VERSION as keyof (typeof DOWNLOAD_LINKS)["x64"]);
     const FIRECRACKER_SOCKET_PATH = yield* _(
       Config.string("FIRECRACKER_SOCKET_PATH").pipe(Config.withDefault("/tmp/firecracker.sock"))
     );
@@ -313,45 +330,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         return path.join(setupDirectory, `release-${version}-${arch}/firecracker-${version}-${arch}`);
       });
 
-    const getMainVersion = <V extends keyof (typeof DOWNLOAD_LINKS)["x64"]>(version: V) => {
-      const versionParts = version.split(".") as [string, string, string] | [string, string];
-      if (versionParts.length === 3) {
-        return `${versionParts[0]}.${versionParts[1]}` as V;
-      }
-      if (versionParts.length === 2) {
-        return `${versionParts[0]}.${versionParts[1]}` as V;
-      }
-      return version;
-    };
-
-    const setup = (setupDir: string = "./firecracker-setup") =>
-      Effect.gen(function* (_) {
-        const fs = yield* _(FileSystem.FileSystem);
-        const FIRECRACKER_SETUP_DIR = yield* Config.string("FIRECRACKER_SETUP_DIR").pipe(Config.withDefault(setupDir));
-        const FIRECRACKER_VERSION = yield* Config.string("FIRECRACKER_VERSION").pipe(Config.withDefault("v1.11"));
-        const FIRECRACKER_MAIN_VERSION = getMainVersion(FIRECRACKER_VERSION as keyof (typeof DOWNLOAD_LINKS)["x64"]);
-        const FIRECRACKER_LINUX_VERSION = yield* Config.string("FIRECRACKER_LINUX_VERSION").pipe(
-          Config.withDefault("6.1.102")
-        );
-        // const LINUX_MICROVM_CONFIG_URL = `https://raw.githubusercontent.com/firecracker-microvm/firecracker/refs/heads/main/resources/guest_configs/microvm-kernel-ci-x86_64-${FIRECRACKER_LINUX_VERSION}.config`;
-
-        const start = Date.now();
-        const starting_dir = yield* get_safe_path(FIRECRACKER_SETUP_DIR);
-        const starting_dir_exists = yield* fs.exists(starting_dir);
-        if (!starting_dir_exists) {
-          yield* fs.makeDirectory(starting_dir, { recursive: true });
-        }
-
-        const vmlinux = yield* getKernelFile(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
-        const rootfs = yield* getRootfs(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
-        const firecracker = yield* downloadFirecrackerBinary(starting_dir, FIRECRACKER_VERSION);
-
-        const duration = Date.now() - start;
-
-        yield* logger.info("setup", `\nFirecracker setup complete! (${duration}ms)`);
-
-        return { vmlinux, rootfs, firecracker };
-      });
 
     const close = (options?: { bypass: { isRunning: boolean } }) =>
       Effect.gen(function* (_) {
@@ -390,8 +368,22 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         if (!vmsFolderExists) {
           yield* fs.makeDirectory(vmsSafePath, { recursive: true });
         }
+        // const LINUX_MICROVM_CONFIG_URL = `https://raw.githubusercontent.com/firecracker-microvm/firecracker/refs/heads/main/resources/guest_configs/microvm-kernel-ci-x86_64-${FIRECRACKER_LINUX_VERSION}.config`;
 
-        const { vmlinux, firecracker, rootfs } = yield* setup(vmsSafePath);
+        const start = Date.now();
+        const starting_dir = yield* get_safe_path(FIRECRACKER_SETUP_DIR);
+        const starting_dir_exists = yield* fs.exists(starting_dir);
+        if (!starting_dir_exists) {
+          yield* fs.makeDirectory(starting_dir, { recursive: true });
+        }
+
+        const vmlinux = yield* getKernelFile(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
+        const rootfs = yield* getRootfs(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
+        const firecracker = yield* downloadFirecrackerBinary(starting_dir, FIRECRACKER_VERSION);
+
+        const duration = Date.now() - start;
+
+        yield* logger.info("setup", `\nFirecracker setup complete! (${duration}ms)`);
 
         yield* logger.info("Firecracker binary is located at: " + firecracker);
         yield* logger.info("VMLinux file is located at: " + vmlinux);
