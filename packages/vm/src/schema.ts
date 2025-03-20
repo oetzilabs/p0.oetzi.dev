@@ -1,13 +1,5 @@
 import { Schema } from "effect";
 
-export const VolumeSchema = Schema.Struct({
-  volume_id: Schema.String,
-  path_on_host: Schema.String,
-  is_root_device: Schema.Boolean,
-});
-
-export type Volume = Schema.Schema.Type<typeof VolumeSchema>;
-
 export const DriveSchema = Schema.Struct({
   drive_id: Schema.String,
   path_on_host: Schema.String,
@@ -40,29 +32,29 @@ export const BootSourceSchema = Schema.Struct({
 
 export type BootSource = Schema.Schema.Type<typeof BootSourceSchema>;
 
+export const VmId = Schema.String.pipe(Schema.brand("VmId"));
+export type VmId = typeof VmId.Type;
+
 export const VmConfigSchema = Schema.Struct({
+  vmId: VmId,
   boot_source: BootSourceSchema,
   drives: Schema.mutable(Schema.Array(DriveSchema)),
   network_interfaces: Schema.mutable(Schema.Array(NetworkInterfaceSchema)),
   machine_config: MachineConfigSchema,
-  volumes: Schema.mutable(Schema.Array(VolumeSchema)),
 });
 
 export type VmConfig = Schema.Schema.Type<typeof VmConfigSchema>;
-
-export const VmId = Schema.String.pipe(Schema.brand("VmId"));
-export type VmId = typeof VmId.Type;
 
 export const RunSchema = Schema.Struct({
   code: Schema.String,
   language: Schema.String,
   config: Schema.Struct({
-    os: Schema.Union(Schema.Literal("ubuntu-24.04.ext4")),
+    // os: Schema.Union(Schema.Literal("ubuntu-24.04.ext4")),
     timeout: Schema.optional(Schema.Number),
     persistent: Schema.optional(Schema.Boolean),
-    volumes: Schema.optional(Schema.mutable(Schema.Array(VolumeSchema))),
     network_interfaces: Schema.optional(Schema.mutable(Schema.Array(NetworkInterfaceSchema))),
     dependencies: Schema.optional(Schema.Array(Schema.String)),
+    drives: Schema.optional(Schema.mutable(Schema.Array(DriveSchema))),
     resources: Schema.optional(
       Schema.Struct({
         cpu: Schema.Number,

@@ -4,15 +4,14 @@ import { Effect } from "effect";
 
 const program = Effect.gen(function* (_) {
   const firecracker = yield* _(FirecrackerService);
-  yield* firecracker.prepare();
   yield* firecracker.run({
     code: "console.log('hello world')",
     language: "js",
     config: {
-      os: "ubuntu-24.04.ext4",
+      // os: "ubuntu-24.04.ext4",
       timeout: 10,
-      persistent: true,
-      volumes: [],
+      persistent: false,
+      drives: [],
       network_interfaces: [],
     },
   });
