@@ -29,6 +29,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const base_logger = yield* _(BaseLoggerService);
     const logger = base_logger.withGroup("firecracker");
     const separator = process.platform === "win32" ? ";" : ":";
+    const arch = process.arch === "x64" ? "x86_64" : "aarch64";
 
     const PathConfig = yield* Config.string("PATH").pipe(Config.withDefault(""));
     const PATH = PathConfig.split(separator)
@@ -95,17 +96,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const vmsSafePath = yield* get_safe_path("prepare");
 
     // Functions
-    const downloadLinux = (
+    const getKernelFile = (
       setupDir: string,
       linux_version: string = "6.1.102",
       firecracker_version: string = "v1.10"
     ) =>
       Effect.gen(function* (_) {
-        const fs = yield* _(FileSystem.FileSystem);
-        const path = yield* _(Path.Path);
-
-        const arch = process.arch === "x64" ? "x86_64" : "aarch64";
-
         const filename = `linux-${firecracker_version}-${arch}-${linux_version}`;
 
         //example: https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/x86_64/vmlinux-6.1.102
@@ -128,6 +124,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         return path.join(linuxDir, filename); // Return the path to the extracted Linux
       });
+
     const getDownloadLink = <A extends keyof typeof DOWNLOAD_LINKS, V extends keyof (typeof DOWNLOAD_LINKS)[A]>(
       arch: A,
       firecracker_version: V
@@ -140,36 +137,23 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       return dl["v1.11"];
     };
 
-    const downloadRootfs = (
+    const getRootfs = (
       setupDirectory: string,
       linuxVersion: string = "6.1",
       firecracker_version: keyof (typeof DOWNLOAD_LINKS)["x64"] = "v1.10"
     ) =>
       Effect.gen(function* (_) {
-        const fs = yield* _(FileSystem.FileSystem);
-        const path = yield* _(Path.Path);
-        const separator = process.platform === "win32" ? ";" : ":";
-        const arch = process.arch === "x64" ? "x86_64" : "aarch64";
-
-        const PathConfig = yield* Config.string("PATH").pipe(Config.withDefault(""));
-        const PATH = PathConfig.split(separator)
-          .filter((p) => !p.includes(" "))
-          .join(separator);
-
-        const env = Command.env({
-          PATH,
-        });
         const dl_arch = process.arch === "x64" ? "x64" : "aarch64";
         const dl = getDownloadLink(dl_arch, firecracker_version);
 
-        const filename = `rootfs-${firecracker_version}-${arch}-${linuxVersion}.squashfs`;
+        const filename = path.basename(`${dl.os}.upstream`);
         let rootFsFile = FileDownload.make({
           from: new URL(dl.os),
           filename,
           to: path.join(setupDirectory, filename),
           exists: false,
         });
-
+        yield* logger.info("downloadRootfs", `Checking if upstream file exists ${rootFsFile.to}`);
         const rootsFile_exists = yield* fs.exists(path.join(setupDirectory, filename));
 
         if (!rootsFile_exists) {
@@ -177,9 +161,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           rootFsFile = yield* downloaded_file(rootFsFile);
         }
 
-        const squashfs_root_exists = yield* fs.exists(path.join(setupDirectory, "squashfs-root"));
+        const unsquashed_folder = `unsquashed-${path.basename(dl.os).replace(".squashfs", "")}`;
+        yield* logger.info("downloadRootfs", `Checking for ${path.join(setupDirectory, unsquashed_folder)}`);
+        const squashfs_root_exists = yield* fs.exists(path.join(setupDirectory, unsquashed_folder));
         if (!squashfs_root_exists) {
-          const unsquashfs_com = Command.make("unsquashfs", rootFsFile.to).pipe(
+          yield* logger.info("downloadRootfs", `Unsquashing the ${filename} to ${unsquashed_folder}`);
+          const unsquashfs_com = Command.make("unsquashfs", "-d", unsquashed_folder, rootFsFile.to).pipe(
             Command.workingDirectory(setupDirectory),
             env
           );
@@ -193,13 +180,13 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           }
         }
 
-        const id_rsa_name = dl.os.split("/").pop()!.replace(".squashfs", ".id_rsa");
-        const id_rsa_path = path.join(setupDirectory, "squashfs-root", "root", ".ssh", id_rsa_name);
-        const id_rsa_exists = yield* fs.exists(id_rsa_path).pipe(Effect.catchAll(() => Effect.succeed(false)));
+        const id_rsa_name = path.basename(dl.os).replace(".squashfs", ".id_rsa");
+        const id_rsa_path = path.join(setupDirectory, unsquashed_folder, "root", ".ssh", id_rsa_name);
+        const id_rsa_exists = yield* fs.exists(id_rsa_path);
         if (!id_rsa_exists) {
           yield* logger.error("downloadRootfs", "id_rsa does not exist, generating...");
           const ssh_keygen_com = Command.make("ssh-keygen", "-f", id_rsa_name, "-N", '""').pipe(
-            Command.workingDirectory(path.join(setupDirectory, "squashfs-root", "root", ".ssh")),
+            Command.workingDirectory(path.join(setupDirectory, unsquashed_folder, "root", ".ssh")),
             env
           );
 
@@ -210,38 +197,66 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
               FireCrackerDownloadFailed.make({ exitCode: ssh_keygen_exit_code, message: "ssh_keygen failed" })
             );
           }
-        }
-
-        // chowning the squashfs-root directory to the current user
-        yield* fs.chown(path.join(setupDirectory, "squashfs-root"), process.getuid?.()!, process.getgid?.()!);
-
-        const truncate_com = Command.make("truncate", "-s", "400M", "ubuntu-24.04.ext4").pipe(
-          Command.workingDirectory(setupDirectory),
-          env
-        );
-
-        const truncate_process = yield* run_command_withLogger(truncate_com, "downloadRootfs", logger);
-        const truncate_exit_code = yield* truncate_process.exitCode;
-        if (truncate_exit_code !== 0) {
-          return yield* Effect.fail(
-            FireCrackerDownloadFailed.make({ exitCode: truncate_exit_code, message: "truncation failed" })
+          // cp id_rsa.pub authorized_keys
+          const cp_com = Command.make("cp", `${id_rsa_name}.pub`, "authorized_keys").pipe(
+            Command.workingDirectory(path.join(setupDirectory, unsquashed_folder, "root", ".ssh")),
+            env
           );
+          const cp_process = yield* run_command_withLogger(cp_com, "downloadRootfs", logger);
+          const cp_exit_code = yield* cp_process.exitCode;
+          if (cp_exit_code !== 0) {
+            return yield* Effect.fail(FireCrackerDownloadFailed.make({ exitCode: cp_exit_code, message: "cp failed" }));
+          }
+
+          // sudo chown -R root:root unsquashed_folder
+          const chown_com = Command.make(
+            "sudo",
+            "chown",
+            "-R",
+            "root:root",
+            path.join(setupDirectory, unsquashed_folder)
+          ).pipe(Command.workingDirectory(setupDirectory), env);
+          const chown_process = yield* run_command_withLogger(chown_com, "downloadRootfs", logger);
+          const chown_exit_code = yield* chown_process.exitCode;
+          if (chown_exit_code !== 0) {
+            return yield* Effect.fail(
+              FireCrackerDownloadFailed.make({ exitCode: chown_exit_code, message: "chown failed" })
+            );
+          }
+
+          const truncate_com = Command.make(
+            "truncate",
+            "-s",
+            "400M",
+            path.basename(dl.os).replace(".squashfs", ".ext4")
+          ).pipe(Command.workingDirectory(setupDirectory), env);
+
+          const truncate_process = yield* run_command_withLogger(truncate_com, "downloadRootfs", logger);
+          const truncate_exit_code = yield* truncate_process.exitCode;
+          if (truncate_exit_code !== 0) {
+            return yield* Effect.fail(
+              FireCrackerDownloadFailed.make({ exitCode: truncate_exit_code, message: "truncation failed" })
+            );
+          }
+
+          const mkfs_ext4_com = Command.make(
+            "mkfs.ext4",
+            "-d",
+            path.join(setupDirectory, unsquashed_folder),
+            "-F",
+            path.basename(dl.os).replace(".squashfs", ".ext4")
+          ).pipe(Command.workingDirectory(setupDirectory), env);
+
+          const mkfs_ext4_process = yield* run_command_withLogger(mkfs_ext4_com, "downloadRootfs", logger);
+          const mkfs_ext4_exit_code = yield* mkfs_ext4_process.exitCode;
+          if (mkfs_ext4_exit_code !== 0) {
+            return yield* Effect.fail(
+              FireCrackerDownloadFailed.make({ exitCode: truncate_exit_code, message: "mkfs.ext4 failed" })
+            );
+          }
         }
 
-        const mkfs_ext4_com = Command.make("mkfs.ext4", "-d", "squashfs-root", "-F", "ubuntu-24.04.ext4").pipe(
-          Command.workingDirectory(setupDirectory),
-          env
-        );
-
-        const mkfs_ext4_process = yield* run_command_withLogger(mkfs_ext4_com, "downloadRootfs", logger);
-        const mkfs_ext4_exit_code = yield* mkfs_ext4_process.exitCode;
-        if (mkfs_ext4_exit_code !== 0) {
-          return yield* Effect.fail(
-            FireCrackerDownloadFailed.make({ exitCode: truncate_exit_code, message: "mkfs.ext4 failed" })
-          );
-        }
-
-        return path.join(setupDirectory, "ubuntu-24.04.ext4");
+        return path.join(setupDirectory, unsquashed_folder);
       });
 
     const downloadFirecrackerBinary = (setupDirectory: string, version: string = "v1.10") =>
@@ -327,8 +342,8 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           yield* fs.makeDirectory(starting_dir, { recursive: true });
         }
 
-        const vmlinux = yield* downloadLinux(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
-        const rootfs = yield* downloadRootfs(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
+        const vmlinux = yield* getKernelFile(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
+        const rootfs = yield* getRootfs(starting_dir, FIRECRACKER_LINUX_VERSION, FIRECRACKER_MAIN_VERSION);
         const firecracker = yield* downloadFirecrackerBinary(starting_dir, FIRECRACKER_VERSION);
 
         const duration = Date.now() - start;
@@ -502,7 +517,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       Effect.gen(function* (_) {
         // unix-socket send action
 
-        const response = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/vms/${vmId}/actions`, {
+        const response = yield* socket_fetch("PUT", `${FIRECRACKER_URL}/actions`, {
           action_type: "InstanceStart",
         });
 

@@ -5,6 +5,7 @@ export class FireCrackerDownloadFailed extends Schema.TaggedError<FireCrackerDow
   {
     exitCode: Schema.Number,
     message: Schema.String,
+    cause: Schema.optional(Schema.Any),
   }
 ) {}
 
