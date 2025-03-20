@@ -355,20 +355,20 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const createFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = yield* get_safe_path(`/tmp/firecracker-${config.vmId}.sock`);
+        const vmSocketPath = `/tmp/firecracker-${config.vmId}.sock`;
         const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(
           Command.runInShell(true),
           env
         );
 
         // run in the background
-        const _firecracker_command_result = yield* run_command_withLogger(
+        yield* run_command_withLogger(
           firecrackerCommand,
           "createFirecrackerVM",
           logger
         ).pipe(Effect.fork);
 
-        yield* Effect.sleep(Duration.millis(200));
+        yield* Effect.sleep(Duration.millis(500));
 
         // does the socket path exist?
         const vmSocketPathExists = yield* fs.exists(vmSocketPath);
