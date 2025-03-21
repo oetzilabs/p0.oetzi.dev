@@ -99,10 +99,7 @@ export class JailerService extends Effect.Service<JailerService>()("@p0/vm/jaile
           "--gid",
           String(GID),
           "--uid",
-          String(UID),
-          "--",
-          "--api-sock",
-          config.socketPath
+          String(UID)
         ).pipe(env);
 
         const jailerProcess = yield* run_command(jailerCommand, "jailer");
