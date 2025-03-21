@@ -386,14 +386,14 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* fs.remove(firecrackerSocketPath, { force: true });
       });
 
-    const createFirecrackerVM = (config: VmConfig) =>
+    const settingUpFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
         const vmSocketPath = `/tmp/firecracker-${config.vmId}.sock`;
         yield* logger.info("createFirecrackerVM", "vmSocketPath", vmSocketPath);
         yield* logger.info("createFirecrackerVM", "FIRECRACKER_BINARY", FIRECRACKER_BINARY);
-        const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
+        // const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
 
-        yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
+        // yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
 
         yield* Effect.sleep(Duration.millis(100));
 
@@ -578,20 +578,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("run", "creating vm configuration");
         const vmConfig = yield* createVmConfiguration(mergedConfig);
 
-        yield* logger.info("run", "creating firecracker vm");
-        const firecracker_vm = yield* createFirecrackerVM(vmConfig);
-
-        yield* logger.info("run", "starting firecracker vm");
-        yield* startFirecrackerVM(firecracker_vm);
-
-        yield* logger.info("run", "jailing");
-        // TODO: Check if the VM is already jailed
         const jailerVMId = yield* jailer
           .jail({
             jailerBinaryPath: JAILER_BINARY,
             firecrackerBinaryPath: FIRECRACKER_BINARY,
-            socketPath: `/tmp/firecracker-${firecracker_vm}.sock`,
-            vmId: firecracker_vm,
+            socketPath: `/tmp/firecracker-${vmConfig.vmId}.sock`,
+            vmId: vmConfig.vmId,
           })
           .pipe(
             Effect.catchTags({
@@ -603,6 +595,15 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           );
 
         yield* logger.info("run", "jailed vm", jailerVMId);
+
+        yield* logger.info("run", "creating firecracker setup");
+        const firecracker_vm = yield* settingUpFirecrackerVM(vmConfig);
+
+        yield* logger.info("run", "starting firecracker vm");
+        yield* startFirecrackerVM(firecracker_vm);
+
+        yield* logger.info("run", "jailing");
+        // TODO: Check if the VM is already jailed
 
         // const executionResult = yield* executeCodeInVM(vmId, language, config.timeout || 10);
 
