@@ -167,7 +167,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       const linuxDir = path.join(STARTING_DIRECTORY, "jailer", "vmlinux-collection");
 
       const destination = path.join(linuxDir, filename);
-      const jailedDestination = path.join("/vmlinux-collection", filename);
+      const jailedDestination = path.join("vmlinux-collection", filename);
       const linuxDirExists = yield* fs.exists(linuxDir);
 
       if (!linuxDirExists) {
@@ -197,7 +197,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* fs.makeDirectory(dl_folder, { recursive: true });
       }
       const destination = path.join(STARTING_DIRECTORY, "jailer", "filesystem-collection", filename);
-      const jailedDestination = path.join("/filesystem-collection", filename.replace(".upstream", ""));
+      const jailedDestination = path.join("filesystem-collection", filename.replace(".upstream", ""));
       let rootFsFile = FileDownload.make({
         from: new URL(dl),
         filename,
