@@ -154,13 +154,19 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       yield* fs.makeDirectory(VMS_SAFE_PATH, { recursive: true });
     }
 
+    const jailerFolderExists = yield* fs.exists(`${STARTING_DIRECTORY}/jailer`);
+    if (!jailerFolderExists) {
+      yield* fs.makeDirectory(`${STARTING_DIRECTORY}/jailer`, { recursive: true });
+    }
+
     const VM_LINUX_BINARY = yield* Effect.gen(function* (_) {
       //example: https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/x86_64/vmlinux-6.1.102
       const LINUX_URL = `https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/${FIRECRACKER_MAIN_VERSION}/${arch}/vmlinux-${FIRECRACKER_LINUX_VERSION}`;
       const filename = path.basename(LINUX_URL);
 
-      const linuxDir = path.join(STARTING_DIRECTORY, "vmlinux-collection");
+      const linuxDir = path.join(STARTING_DIRECTORY, "jailer", "vmlinux-collection");
       const destination = path.join(linuxDir, filename);
+      const jailedDestination = path.join("/vmlinux-collection", filename);
       const linuxDirExists = yield* fs.exists(linuxDir);
 
       if (!linuxDirExists) {
@@ -175,7 +181,8 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         );
       }
 
-      return destination;
+      // This is what jailer expects, a relative path FROM the chroot base dir
+      return jailedDestination;
     });
 
     const ROOTFS_BINARY = yield* Effect.gen(function* (_) {
@@ -184,6 +191,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
       const filename = path.basename(`${dl}.upstream`);
       const destination = path.join(STARTING_DIRECTORY, filename);
+      const jailedDestination = path.join("/rootfs", filename.replace(".upstream", ""));
       let rootFsFile = FileDownload.make({
         from: new URL(dl),
         filename,
@@ -315,7 +323,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         }
       }
 
-      return path.join(STARTING_DIRECTORY, path.basename(dl).replace(".squashfs", ".ext4"));
+      return path.join(jailedDestination.replace(".squashfs", ".ext4"));
     });
 
     const { FIRECRACKER_BINARY, JAILER_BINARY } = yield* Effect.gen(function* (_) {
@@ -578,11 +586,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         yield* logger.info("run", "creating vm configuration");
         const vmConfig = yield* createVmConfiguration(mergedConfig);
-
-        const jailerFolderExists = yield* fs.exists(`${STARTING_DIRECTORY}/jailer`);
-        if (!jailerFolderExists) {
-          yield* fs.makeDirectory(`${STARTING_DIRECTORY}/jailer`, { recursive: true });
-        }
 
         yield* jailer
           .jail({
