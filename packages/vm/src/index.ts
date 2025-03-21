@@ -426,7 +426,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           body: config.boot_source,
         });
         yield* logger.info("createFirecrackerVM", "boot-source has been set");
-        yield* Effect.sleep(waitingTimeBetweenCommands);
+        // yield* Effect.sleep(waitingTimeBetweenCommands);
 
         yield* logger.info("createFirecrackerVM", "drives", JSON.stringify(config.drives));
         for (const drive of config.drives) {
@@ -438,7 +438,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           });
         }
         yield* logger.info("createFirecrackerVM", "drives have been set");
-        yield* Effect.sleep(waitingTimeBetweenCommands);
+        // yield* Effect.sleep(waitingTimeBetweenCommands);
 
         // yield* logger.info("createFirecrackerVM", "network-interfaces", JSON.stringify(config.network_interfaces));
         // const networkInterfacesResponse = yield* socket_fetch(
@@ -461,7 +461,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           body: config.machine_config,
         });
         yield* logger.info("createFirecrackerVM", "machine-config has been set");
-        yield* Effect.sleep(waitingTimeBetweenCommands);
+        // yield* Effect.sleep(waitingTimeBetweenCommands);
 
         return config.vmId;
       });
