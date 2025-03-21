@@ -585,15 +585,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
             socketPath: `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmConfig.vmId}/root/run/firecracker.socket`,
             vmId: vmConfig.vmId,
           })
-          .pipe(
-            Effect.catchTags({
-              SystemError: (e) =>
-                Effect.fail(FirecrackerJailerFailed.make({ message: e.message, vmId: firecracker_vm })),
-              BadArgument: (e) =>
-                Effect.fail(FirecrackerJailerFailed.make({ message: e.message, vmId: firecracker_vm })),
-            }),
-            Effect.fork
-          );
+          .pipe(Effect.fork);
 
         yield* logger.info("run", "jailed vm", vmConfig.vmId);
 
