@@ -171,7 +171,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
             exists: false,
             from: new URL(LINUX_URL),
             to: destination,
-            force: true,
           })
         );
       }
@@ -190,7 +189,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         filename,
         to: destination,
         exists: false,
-        force: true,
       });
       yield* logger.info("downloadRootfs", `Checking if upstream file exists ${rootFsFile.to}`);
       const rootsFile_exists = yield* fs.exists(destination);
