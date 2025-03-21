@@ -587,6 +587,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           socketPath: `/tmp/firecracker-${firecracker_vm}.sock`,
           vmId: firecracker_vm,
         });
+        yield* logger.info("run", "jailed vm", jailerVMId);
 
         // const executionResult = yield* executeCodeInVM(vmId, language, config.timeout || 10);
 
