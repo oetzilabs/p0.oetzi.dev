@@ -33,8 +33,15 @@ export class BaseLoggerService extends Effect.Service<BaseLoggerService>()("@p0/
 
     yield* fs.writeFileString(log_file, "");
 
-    const format = (type: typeof debug_level, group: string, area: string, ...rest: any[]) =>
-      `[${Date.now()}][${type}][${group}] ${area} ${rest.join(" ")}`;
+    const format = (type: typeof debug_level, group: string, area: string, ...rest: any[]) => {
+      return JSON.stringify({
+        timestamp: Date.now(),
+        type,
+        group,
+        area,
+        messages: rest,
+      });
+    };
 
     const is_debug_level = (...levels: [typeof debug_level, ...(typeof debug_level)[]]) =>
       levels.some((l) => l.toLowerCase() === debug_level.toLowerCase());
