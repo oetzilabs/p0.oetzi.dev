@@ -578,7 +578,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("run", "creating vm configuration");
         const vmConfig = yield* createVmConfiguration(mergedConfig);
 
-        const jailerVMId = yield* jailer
+        yield* jailer
           .jail({
             jailerBinaryPath: JAILER_BINARY,
             firecrackerBinaryPath: FIRECRACKER_BINARY,
@@ -595,7 +595,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
             Effect.fork
           );
 
-        yield* logger.info("run", "jailed vm", jailerVMId);
+        yield* logger.info("run", "jailed vm", vmConfig.vmId);
 
         yield* Effect.sleep(Duration.millis(100));
 
