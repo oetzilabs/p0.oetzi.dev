@@ -69,6 +69,17 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       return version;
     };
 
+    const socketGen = (vmId: VmId, version: number = 1) => {
+      switch (version) {
+        case 1:
+          return `/tmp/firecracker-${vmId}.socket`;
+        case 2:
+          return `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
+        default:
+          return `/tmp/firecracker-${vmId}.socket`;
+      }
+    };
+
     const run_command = (com: Command.Command, area: string) =>
       Effect.gen(function* (_) {
         const _process = yield* pipe(
@@ -502,7 +513,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const startFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
         const response = yield* socketRequest({
-          firecrackerSocketPath: `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`,
+          firecrackerSocketPath: socketGen(vmId, 1),
           method: "PUT",
           url: `/actions`,
           body: {
@@ -549,7 +560,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const destroyFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
+        const vmSocketPath = socketGen(vmId, 1);
         const response = yield* socketRequest({
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
