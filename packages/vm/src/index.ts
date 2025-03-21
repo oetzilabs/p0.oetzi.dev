@@ -416,7 +416,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           return map;
         });
 
-        const waitingTimeBetweenCommands = Duration.millis(500);
+        // const waitingTimeBetweenCommands = Duration.millis(500);
 
         yield* logger.info("createFirecrackerVM", "boot-source", JSON.stringify(config.boot_source));
         yield* socketRequest({
