@@ -395,7 +395,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         // yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
 
-        yield* Effect.sleep(Duration.millis(100));
+        // yield* Effect.sleep(Duration.millis(100));
 
         const vmSocketPathExists = yield* fs.exists(vmSocketPath);
         if (!vmSocketPathExists) {

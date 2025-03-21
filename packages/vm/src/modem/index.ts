@@ -118,6 +118,7 @@ export class HttpModemService extends Effect.Service<HttpModemService>()("@p0/vm
         Effect.gen(function* () {
           const requestOptions = buildRequestOptions(dialOptions);
           const data = dialOptions.data ? JSON.stringify(dialOptions.data) : undefined;
+          yield* logger.info("dial", "Requesting", dialOptions.path, data);
 
           return yield* buildRequest(requestOptions, dialOptions, data);
         });
