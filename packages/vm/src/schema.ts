@@ -65,3 +65,12 @@ export const RunSchema = Schema.Struct({
 });
 
 export type Run = Schema.Schema.Type<typeof RunSchema>;
+
+export const JailerConfigSchema = Schema.Struct({
+  jailerBinaryPath: Schema.String,
+  firecrackerBinaryPath: Schema.String,
+  socketPath: Schema.String,
+  vmId: VmId,
+});
+
+export type JailerConfig = Schema.Schema.Type<typeof JailerConfigSchema>;

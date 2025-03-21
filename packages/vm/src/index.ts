@@ -15,6 +15,7 @@ import {
   type VmConfig,
 } from "./schema";
 import { HttpModemLive, HttpModemService, type ModemOptions } from "./modem";
+import { JailerLive, JailerService } from "./jailer";
 
 type SocketRequest = {
   firecrackerSocketPath: string;
@@ -39,6 +40,8 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const logger = base_logger.withGroup("firecracker");
     const separator = process.platform === "win32" ? ";" : ":";
     const arch = process.arch === "x64" ? "x86_64" : "aarch64";
+
+    const jailer = yield* _(JailerService);
 
     const PathConfig = yield* Config.string("PATH").pipe(Config.withDefault(""));
     const PATH = PathConfig.split(separator)
@@ -309,7 +312,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       return path.join(STARTING_DIRECTORY, path.basename(dl).replace(".squashfs", ".ext4"));
     });
 
-    const FIRECRACKER_BINARY = yield* Effect.gen(function* (_) {
+    const { FIRECRACKER_BINARY, JAILER_BINARY } = yield* Effect.gen(function* (_) {
       const arch = process.arch === "x64" ? "x86_64" : "aarch64";
 
       const filename = `firecracker-${FIRECRACKER_VERSION}-${arch}.tgz`;
@@ -349,10 +352,16 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("FIRECRACKER_BINARY", `Done untarting the ${downloadPath}`);
       }
 
-      return path.join(
-        STARTING_DIRECTORY,
-        `release-${FIRECRACKER_VERSION}-${arch}/firecracker-${FIRECRACKER_VERSION}-${arch}`
-      );
+      return {
+        FIRECRACKER_BINARY: path.join(
+          STARTING_DIRECTORY,
+          `release-${FIRECRACKER_VERSION}-${arch}/firecracker-${FIRECRACKER_VERSION}-${arch}`
+        ),
+        JAILER_BINARY: path.join(
+          STARTING_DIRECTORY,
+          `release-${FIRECRACKER_VERSION}-${arch}/jailer-${FIRECRACKER_VERSION}-${arch}`
+        ),
+      };
     });
 
     const vmCollection = yield* Ref.make(new Map<string, Effect.Effect<void, any, any>>());
@@ -570,6 +579,15 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("run", "starting firecracker vm");
         yield* startFirecrackerVM(firecracker_vm);
 
+        yield* logger.info("run", "jailing");
+        // TODO: Check if the VM is already jailed
+        const jailerVMId = yield* jailer.jail({
+          jailerBinaryPath: JAILER_BINARY,
+          firecrackerBinaryPath: FIRECRACKER_BINARY,
+          socketPath: `/tmp/firecracker-${firecracker_vm}.sock`,
+          vmId: firecracker_vm,
+        });
+
         // const executionResult = yield* executeCodeInVM(vmId, language, config.timeout || 10);
 
         if (!mergedConfig.persistent) {
@@ -583,7 +601,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     return { run, close } as const;
   }),
-  dependencies: [BaseLoggerLive, HttpModemLive],
+  dependencies: [BaseLoggerLive, HttpModemLive, JailerLive],
 }) {}
 
 export const FirecrackerLive = FirecrackerService.Default;
