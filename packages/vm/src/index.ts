@@ -391,7 +391,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const settingUpFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${config.vmId}/root/run/firecracker.socket`;
+        const vmSocketPath = `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${config.vmId}/root/run/firecracker.socket`;
         yield* logger.info("createFirecrackerVM", "vmSocketPath", vmSocketPath);
         yield* logger.info("createFirecrackerVM", "FIRECRACKER_BINARY", FIRECRACKER_BINARY);
         // const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
@@ -490,7 +490,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const startFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
         const response = yield* socketRequest({
-          firecrackerSocketPath: `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`,
+          firecrackerSocketPath: `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`,
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
           body: {
@@ -537,7 +537,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const destroyFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
+        const vmSocketPath = `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
         const response = yield* socketRequest({
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
@@ -581,12 +581,17 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("run", "creating vm configuration");
         const vmConfig = yield* createVmConfiguration(mergedConfig);
 
+        const jailerFolderExists = yield* fs.exists(`${STARTING_DIRECTORY}/jailer`);
+        if (!jailerFolderExists) {
+          yield* fs.makeDirectory(`${STARTING_DIRECTORY}/jailer`, { recursive: true });
+        }
+
         yield* jailer
           .jail({
             jailerBinaryPath: JAILER_BINARY,
             firecrackerBinaryPath: FIRECRACKER_BINARY,
-            socketPath: `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmConfig.vmId}/root/run/firecracker.socket`,
             vmId: vmConfig.vmId,
+            root: `${STARTING_DIRECTORY}/jailer`,
           })
           .pipe(Effect.fork);
 

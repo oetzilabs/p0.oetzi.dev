@@ -99,7 +99,10 @@ export class JailerService extends Effect.Service<JailerService>()("@p0/vm/jaile
           "--gid",
           String(GID),
           "--uid",
-          String(UID)
+          String(UID),
+          "--daemonize",
+          "--chroot-base-dir",
+          config.root
         ).pipe(env);
 
         const jailerProcess = yield* run_command(jailerCommand, "jailer");
