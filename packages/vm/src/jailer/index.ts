@@ -31,6 +31,7 @@ export class JailerService extends Effect.Service<JailerService>()("@p0/vm/jaile
 
     const env = Command.env({
       PATH,
+      RUST_BACKTRACE: "1",
     });
 
     const jailedProcess = yield* Ref.make(new Map<string, Effect.Effect<void, any, any>>());
