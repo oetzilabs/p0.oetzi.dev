@@ -51,7 +51,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     yield* logger.info("composer", "Starting Firecracker composer");
 
     // helper functions
-    const getMainVersion = <V extends keyof (typeof DOWNLOAD_LINKS)["x64"]>(version: V) => {
+    const getMainVersion = <V extends typeof FIRECRACKER_VERSION>(version: V) => {
       const versionParts = version.split(".") as [string, string, string] | [string, string];
       if (versionParts.length === 3) {
         return `${versionParts[0]}.${versionParts[1]}` as V;
@@ -88,25 +88,16 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         return _process;
       });
 
-    // Constants
-    const DOWNLOAD_LINKS = {
-      x64: {
-        "v1.11": {
-          os: "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.11/x86_64/ubuntu-24.04.squashfs",
-        },
-        "v1.10": {
-          os: "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/x86_64/ubuntu-22.04.squashfs",
-        },
-      },
-      aarch64: {
-        "v1.11": {
-          os: "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.11/aarch64/ubuntu-24.04.squashfs",
-        },
-        "v1.10": {
-          os: "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/aarch64/ubuntu-22.04.squashfs",
-        },
-      },
+    const UBUNTU_VERSIONS: {
+      [key: string]: string;
+    } = {
+      "v1.11": "24.04",
+      "v1.10": "22.04",
     };
+
+    // Constants
+    const DOWNLOAD_LINK = (arch: string, version: string) =>
+      `https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/${version}/${arch}/ubuntu-${UBUNTU_VERSIONS[version]}.squashfs`;
 
     const DEFAULT_VM_CONFIG_OPTIONS: {
       linux: string;
@@ -127,8 +118,25 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       Config.withDefault("6.1.102")
     );
     const FIRECRACKER_URL = "";
-    const FIRECRACKER_VERSION = yield* Config.string("FIRECRACKER_VERSION").pipe(Config.withDefault("v1.11"));
-    const FIRECRACKER_MAIN_VERSION = getMainVersion(FIRECRACKER_VERSION as keyof (typeof DOWNLOAD_LINKS)["x64"]);
+    const FIRECRACKER_VERSION = yield* Config.string("FIRECRACKER_VERSION").pipe(
+      Config.withDefault("v1.11"),
+      Config.validate({
+        message: "Invalid Firecracker version",
+        validation: (v) => {
+          const versionSplit = v.replace("v", "").split(".");
+          const [major, minor, ...rest] = versionSplit.map((v) => Number.parseInt(v));
+          const len = versionSplit.length;
+          if (major === undefined || minor === undefined) {
+            return false;
+          }
+          if (rest.length > 1) {
+            return false;
+          }
+          return v.startsWith("v") && len >= 2 && len <= 3;
+        },
+      })
+    );
+    const FIRECRACKER_MAIN_VERSION = getMainVersion(FIRECRACKER_VERSION);
     const STARTING_DIRECTORY = yield* get_safe_path(FIRECRACKER_SETUP_DIR);
     const starting_dir_exists = yield* fs.exists(STARTING_DIRECTORY);
     if (!starting_dir_exists) {
@@ -167,11 +175,11 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const ROOTFS_BINARY = yield* Effect.gen(function* (_) {
       const dl_arch = process.arch === "x64" ? "x64" : "aarch64";
-      const dl = DOWNLOAD_LINKS[dl_arch][FIRECRACKER_MAIN_VERSION];
+      const dl = DOWNLOAD_LINK(dl_arch, FIRECRACKER_MAIN_VERSION);
 
-      const filename = path.basename(`${dl.os}.upstream`);
+      const filename = path.basename(`${dl}.upstream`);
       let rootFsFile = FileDownload.make({
-        from: new URL(dl.os),
+        from: new URL(dl),
         filename,
         to: path.join(STARTING_DIRECTORY, filename),
         exists: false,
@@ -187,7 +195,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         rootFsFile = yield* downloaded_file(rootFsFile);
       }
 
-      const unsquashed_folder = `unsquashed-${path.basename(dl.os).replace(".squashfs", "")}`;
+      const unsquashed_folder = `unsquashed-${path.basename(dl).replace(".squashfs", "")}`;
       yield* logger.info("downloadRootfs", `Checking for ${path.join(STARTING_DIRECTORY, unsquashed_folder)}`);
       const squashfs_root_exists = yield* fs.exists(path.join(STARTING_DIRECTORY, unsquashed_folder));
       if (!squashfs_root_exists) {
@@ -209,7 +217,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         }
       }
 
-      const id_rsa_name = path.basename(dl.os).replace(".squashfs", ".id_rsa");
+      const id_rsa_name = path.basename(dl).replace(".squashfs", ".id_rsa");
       const id_rsa_path = path.join(STARTING_DIRECTORY, unsquashed_folder, "root", ".ssh", id_rsa_name);
       const id_rsa_exists = yield* fs.exists(id_rsa_path);
       if (!id_rsa_exists) {
@@ -268,7 +276,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           "truncate",
           "-s",
           "400M",
-          path.basename(dl.os).replace(".squashfs", ".ext4")
+          path.basename(dl).replace(".squashfs", ".ext4")
         ).pipe(Command.workingDirectory(STARTING_DIRECTORY), env);
 
         const truncate_process = yield* run_command(truncate_com, "downloadRootfs");
@@ -287,7 +295,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           "-d",
           path.join(STARTING_DIRECTORY, unsquashed_folder),
           "-F",
-          path.basename(dl.os).replace(".squashfs", ".ext4")
+          path.basename(dl).replace(".squashfs", ".ext4")
         ).pipe(Command.workingDirectory(STARTING_DIRECTORY), env);
 
         const mkfs_ext4_process = yield* run_command(mkfs_ext4_com, "downloadRootfs");
@@ -302,7 +310,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         }
       }
 
-      return path.join(STARTING_DIRECTORY, path.basename(dl.os).replace(".squashfs", ".ext4"));
+      return path.join(STARTING_DIRECTORY, path.basename(dl).replace(".squashfs", ".ext4"));
     });
 
     const FIRECRACKER_BINARY = yield* Effect.gen(function* (_) {
@@ -381,7 +389,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         // run in the background
         yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
 
-        yield* Effect.sleep(Duration.millis(1000));
+        yield* Effect.sleep(Duration.millis(100));
 
         // does the socket path exist?
         const vmSocketPathExists = yield* fs.exists(vmSocketPath);
@@ -453,7 +461,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         });
         yield* logger.info("createFirecrackerVM", "machine-config has been set");
         yield* Effect.sleep(waitingTimeBetweenCommands);
-
 
         // return the vmId
         return config.vmId;
