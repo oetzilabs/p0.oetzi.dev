@@ -1,7 +1,7 @@
 import { BaseLoggerLive, BaseLoggerService } from "@p0/core/src/logger";
 import { Config, Effect, pipe, Ref, Stream } from "effect";
 import { Command, FileSystem, Path } from "@effect/platform";
-import { type JailerConfig } from "../schema";
+import { type JailerConfig } from "./schema";
 import {
   JailerFailedToStart,
   JailerMissingFirecrackerBinary,
