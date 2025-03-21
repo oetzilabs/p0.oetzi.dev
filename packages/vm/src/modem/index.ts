@@ -1,3 +1,4 @@
+// I took inspiration from https://github.com/apocas/firecrackerode
 import { Effect } from "effect";
 import http from "http";
 import { ModemPayloadError } from "./errors";
