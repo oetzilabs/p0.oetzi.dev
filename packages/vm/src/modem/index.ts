@@ -1,6 +1,7 @@
 import { Effect } from "effect";
-import * as http from "http";
+import http from "http";
 import { ModemPayloadError } from "./errors";
+import { BaseLoggerLive, BaseLoggerService } from "@p0/core/src/logger";
 
 export interface ModemOptions {
   socketPath: string;
@@ -17,15 +18,12 @@ interface DialOptions {
   statusCodes: Record<number, boolean | string>;
 }
 
-interface RequestOptions {
-  socketPath: string;
-  path: string;
-  method: string;
-  headers: Record<string, string>;
-}
+type RequestOptions = http.RequestOptions;
 
 export class HttpModemService extends Effect.Service<HttpModemService>()("@p0/vm/http-modem", {
   effect: Effect.gen(function* (_) {
+    const base_logger = yield* _(BaseLoggerService);
+    const logger = base_logger.withGroup("http-modem");
     const build = (modemOptions: ModemOptions) => {
       const buildRequestOptions = (options: DialOptions): RequestOptions => {
         const requestOptions: RequestOptions = {
@@ -35,10 +33,10 @@ export class HttpModemService extends Effect.Service<HttpModemService>()("@p0/vm
           socketPath: modemOptions.socketPath,
         };
 
-        requestOptions.headers["Content-Type"] = "application/json";
+        requestOptions.headers!["Content-Type"] = "application/json";
         if (options.data) {
           const data = JSON.stringify(options.data);
-          requestOptions.headers["Content-Length"] = Buffer.byteLength(data).toString();
+          requestOptions.headers!["Content-Length"] = Buffer.byteLength(data).toString();
         }
 
         return requestOptions;
@@ -91,7 +89,7 @@ export class HttpModemService extends Effect.Service<HttpModemService>()("@p0/vm
             req.on("socket", (socket) => {
               socket.setTimeout(modemOptions.timeout);
               socket.on("timeout", () => {
-                req.abort();
+                req.destroy();
               });
             });
           }
@@ -100,7 +98,7 @@ export class HttpModemService extends Effect.Service<HttpModemService>()("@p0/vm
             clearTimeout(connectionTimeoutTimer);
           });
 
-          req.on("disconnect", () => {
+          req.on("close", () => {
             clearTimeout(connectionTimeoutTimer);
           });
 
@@ -127,7 +125,7 @@ export class HttpModemService extends Effect.Service<HttpModemService>()("@p0/vm
 
     return { build };
   }),
-  dependencies: [],
+  dependencies: [BaseLoggerLive],
 }) {}
 
 export const HttpModemLive = HttpModemService.Default;

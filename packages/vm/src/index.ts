@@ -4,7 +4,6 @@ import { BaseLoggerLive, BaseLoggerService } from "@p0/core/src/logger";
 import { downloaded_file, get_safe_path } from "@p0/core/src/utils";
 import { FileDownload } from "@p0/core/src/utils/schemas";
 import { Config, Duration, Effect, pipe, Ref, Stream } from "effect";
-import { Client, fetch as undici_fetch } from "undici";
 import { FireCrackerDownloadFailed, FireCrackerFailedToBoot, FireCrackerVmNotCreated } from "./errors";
 import {
   DriveSchema,
@@ -16,13 +15,6 @@ import {
   type VmConfig,
 } from "./schema";
 import { HttpModemLive, HttpModemService, type ModemOptions } from "./modem";
-
-const makeDispatcher = (host: string, socketPath: string) =>
-  new Client(host, {
-    connect: {
-      socketPath,
-    },
-  });
 
 type SocketRequest = {
   firecrackerSocketPath: string;
@@ -69,6 +61,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       }
       return version;
     };
+
     const run_command = (com: Command.Command, area: string) =>
       Effect.gen(function* (_) {
         const _process = yield* pipe(
@@ -128,12 +121,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       network_interfaces: [],
     };
     const FIRECRACKER_SETUP_DIR = yield* Config.string("FIRECRACKER_SETUP_DIR").pipe(
-      Config.withDefault("./firecracker-setup")
+      Config.withDefault("firecracker-setup")
     );
     const FIRECRACKER_LINUX_VERSION = yield* Config.string("FIRECRACKER_LINUX_VERSION").pipe(
       Config.withDefault("6.1.102")
     );
-    const FIRECRACKER_URL = "http://localhost";
+    const FIRECRACKER_URL = "";
     const FIRECRACKER_VERSION = yield* Config.string("FIRECRACKER_VERSION").pipe(Config.withDefault("v1.11"));
     const FIRECRACKER_MAIN_VERSION = getMainVersion(FIRECRACKER_VERSION as keyof (typeof DOWNLOAD_LINKS)["x64"]);
     const STARTING_DIRECTORY = yield* get_safe_path(FIRECRACKER_SETUP_DIR);
@@ -381,15 +374,14 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const createFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
         const vmSocketPath = `/tmp/firecracker-${config.vmId}.sock`;
-        const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(
-          Command.runInShell(true),
-          env
-        );
+        yield* logger.info("createFirecrackerVM", "vmSocketPath", vmSocketPath);
+        yield* logger.info("createFirecrackerVM", "FIRECRACKER_BINARY", FIRECRACKER_BINARY);
+        const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
 
         // run in the background
         yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
 
-        yield* Effect.sleep(Duration.millis(500));
+        yield* Effect.sleep(Duration.millis(1000));
 
         // does the socket path exist?
         const vmSocketPathExists = yield* fs.exists(vmSocketPath);
@@ -415,7 +407,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         // first boot-source
         yield* logger.info("createFirecrackerVM", "boot-source", JSON.stringify(config.boot_source));
-        yield* socket_request({
+        yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
           url: `${FIRECRACKER_URL}/boot-source`,
@@ -427,7 +419,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         // then drives
         yield* logger.info("createFirecrackerVM", "drives", JSON.stringify(config.drives));
         for (const drive of config.drives) {
-          yield* socket_request({
+          yield* socketRequest({
             firecrackerSocketPath: vmSocketPath,
             method: "PUT",
             url: `${FIRECRACKER_URL}/drives/${drive.drive_id}`,
@@ -453,7 +445,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         // then machine-config
         yield* logger.info("createFirecrackerVM", "machine-config", JSON.stringify(config.machine_config));
-        yield* socket_request({
+        yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
           url: `${FIRECRACKER_URL}/machine-config`,
@@ -462,28 +454,18 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("createFirecrackerVM", "machine-config has been set");
         yield* Effect.sleep(waitingTimeBetweenCommands);
 
-        yield* socket_request({
-          firecrackerSocketPath: vmSocketPath,
-          method: "PUT",
-          url: `${FIRECRACKER_URL}/actions`,
-          body: {
-            action_type: "InstanceStart",
-          },
-        });
-        yield* logger.info("createFirecrackerVM", "InstanceStart has been set");
-        yield* Effect.sleep(waitingTimeBetweenCommands);
 
         // return the vmId
         return config.vmId;
       });
 
-    const socket_request = (scr: SocketRequest) =>
+    const socketRequest = (scr: SocketRequest) =>
       Effect.gen(function* (_) {
         const dialer = modem_dialer({ socketPath: scr.firecrackerSocketPath });
         return yield* dialer({
           path: scr.url,
           method: scr.method,
-          data: JSON.stringify(scr.body),
+          data: scr.body,
           statusCodes: {
             204: true,
             400: "BadRequest",
@@ -495,27 +477,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         });
       });
 
-    const socket_fetch = (
-      method: NonNullable<NonNullable<Parameters<typeof undici_fetch>[1]>["method"]>,
-      url: string,
-      body: unknown,
-      dispatcher: Client
-    ) =>
-      Effect.tryPromise((signal) =>
-        undici_fetch(url, {
-          method,
-          dispatcher,
-          body: JSON.stringify(body),
-          signal,
-        })
-      );
-
     const startFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = yield* get_safe_path(`/tmp/firecracker-${vmId.toString()}.sock`);
+        const vmSocketPath = `/tmp/firecracker-${vmId}.sock`;
 
         // unix-socket send action
-        const response = yield* socket_request({
+        const response = yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
@@ -563,22 +530,15 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const destroyFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = yield* get_safe_path(`/tmp/firecracker-${vmId.toString()}.sock`);
-        const dispatcher = makeDispatcher(FIRECRACKER_URL, vmSocketPath);
-        const response = yield* socket_fetch(
-          "PUT",
-          `${FIRECRACKER_URL}/actions`,
-          {
-            action_type: "SendCtrlAltDel",
-          },
-          dispatcher
-        );
+        const vmSocketPath = `/tmp/firecracker-${vmId}.sock`;
+        const response = yield* socketRequest({
+          method: "PUT",
+          url: `${FIRECRACKER_URL}/actions`,
+          body: { action_type: "SendCtrlAltDel" },
+          firecrackerSocketPath: vmSocketPath,
+        });
 
-        if (response.status !== 204) {
-          return yield* Effect.fail(FireCrackerVmNotCreated.make({ message: "Failed to destroy VM" }));
-        }
-
-        return yield* Effect.promise(() => response.text());
+        return response;
       });
 
     const getHostDrives = () =>
