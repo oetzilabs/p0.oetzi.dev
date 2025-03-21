@@ -406,11 +406,11 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         const vmSocketPath = `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${config.vmId}/root/run/firecracker.socket`;
         yield* logger.info("createFirecrackerVM", "vmSocketPath", vmSocketPath);
         yield* logger.info("createFirecrackerVM", "FIRECRACKER_BINARY", FIRECRACKER_BINARY);
-        // const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
+        const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
 
-        // yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
+        yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
 
-        // yield* Effect.sleep(Duration.millis(100));
+        yield* Effect.sleep(Duration.millis(100));
 
         const vmSocketPathExists = yield* fs.exists(vmSocketPath);
         if (!vmSocketPathExists) {
@@ -593,14 +593,14 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("run", "creating vm configuration");
         const vmConfig = yield* createVmConfiguration(mergedConfig);
 
-        yield* jailer
-          .jail({
-            jailerBinaryPath: JAILER_BINARY,
-            firecrackerBinaryPath: FIRECRACKER_BINARY,
-            vmId: vmConfig.vmId,
-            root: path.join(STARTING_DIRECTORY, "jailer"),
-          })
-          .pipe(Effect.fork);
+        // yield* jailer
+        //   .jail({
+        //     jailerBinaryPath: JAILER_BINARY,
+        //     firecrackerBinaryPath: FIRECRACKER_BINARY,
+        //     vmId: vmConfig.vmId,
+        //     root: path.join(STARTING_DIRECTORY, "jailer"),
+        //   })
+        //   .pipe(Effect.fork);
 
         yield* logger.info("run", "jailed vm", vmConfig.vmId);
 
