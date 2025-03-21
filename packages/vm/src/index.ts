@@ -160,8 +160,8 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       const filename = path.basename(LINUX_URL);
 
       const linuxDir = path.join(STARTING_DIRECTORY, "vmlinux-collection");
-      const linuxDirExists = yield* fs.exists(linuxDir);
       const destination = path.join(linuxDir, filename);
+      const linuxDirExists = yield* fs.exists(linuxDir);
 
       if (!linuxDirExists) {
         yield* fs.makeDirectory(linuxDir, { recursive: true });
@@ -171,6 +171,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
             exists: false,
             from: new URL(LINUX_URL),
             to: destination,
+            force: true,
           })
         );
       }
@@ -183,14 +184,16 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       const dl = DOWNLOAD_LINK(dl_arch, FIRECRACKER_MAIN_VERSION);
 
       const filename = path.basename(`${dl}.upstream`);
+      const destination = path.join(STARTING_DIRECTORY, filename);
       let rootFsFile = FileDownload.make({
         from: new URL(dl),
         filename,
-        to: path.join(STARTING_DIRECTORY, filename),
+        to: destination,
         exists: false,
+        force: true,
       });
       yield* logger.info("downloadRootfs", `Checking if upstream file exists ${rootFsFile.to}`);
-      const rootsFile_exists = yield* fs.exists(path.join(STARTING_DIRECTORY, filename));
+      const rootsFile_exists = yield* fs.exists(destination);
 
       if (!rootsFile_exists) {
         yield* logger.info(
