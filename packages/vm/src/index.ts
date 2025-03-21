@@ -542,13 +542,13 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
             boot_args: "console=ttyS0 noapic reboot=k panic=1 pci=off nomodules",
           },
           drives: [
+            ...host_drives,
             {
               drive_id: "rootfs",
               path_on_host: ROOTFS_BINARY,
               is_read_only: false,
               is_root_device: true,
             },
-            ...host_drives,
           ],
           network_interfaces: [...mergedConfig.network_interfaces],
           machine_config: {
