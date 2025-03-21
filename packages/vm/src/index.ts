@@ -179,7 +179,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     });
 
     const ROOTFS_BINARY = yield* Effect.gen(function* (_) {
-      const dl_arch = process.arch === "x64" ? "x64" : "aarch64";
+      const dl_arch = process.arch === "x64" ? "x86_64" : "aarch64";
       const dl = DOWNLOAD_LINK(dl_arch, FIRECRACKER_MAIN_VERSION);
 
       const filename = path.basename(`${dl}.upstream`);
