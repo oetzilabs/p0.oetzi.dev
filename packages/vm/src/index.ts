@@ -190,8 +190,8 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       const dl = DOWNLOAD_LINK(dl_arch, FIRECRACKER_MAIN_VERSION);
 
       const filename = path.basename(`${dl}.upstream`);
-      const destination = path.join(STARTING_DIRECTORY, filename);
-      const jailedDestination = path.join("/rootfs", filename.replace(".upstream", ""));
+      const destination = path.join(STARTING_DIRECTORY, "jailer", "filesystem-collection", filename);
+      const jailedDestination = path.join("/filesystem-collection", filename.replace(".upstream", ""));
       let rootFsFile = FileDownload.make({
         from: new URL(dl),
         filename,
@@ -431,7 +431,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
-          url: `${FIRECRACKER_URL}/boot-source`,
+          url: `/boot-source`,
           body: config.boot_source,
         });
         yield* logger.info("createFirecrackerVM", "boot-source has been set");
@@ -442,7 +442,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           yield* socketRequest({
             firecrackerSocketPath: vmSocketPath,
             method: "PUT",
-            url: `${FIRECRACKER_URL}/drives/${drive.drive_id}`,
+            url: `/drives/${drive.drive_id}`,
             body: drive,
           });
         }
@@ -452,7 +452,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         // yield* logger.info("createFirecrackerVM", "network-interfaces", JSON.stringify(config.network_interfaces));
         // const networkInterfacesResponse = yield* socket_fetch(
         //   "PUT",
-        //   `${FIRECRACKER_URL}/network-interfaces`,
+        //   `/network-interfaces`,
         //   config.network_interfaces,
         //   dispatcher
         // );
@@ -466,7 +466,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
-          url: `${FIRECRACKER_URL}/machine-config`,
+          url: `/machine-config`,
           body: config.machine_config,
         });
         yield* logger.info("createFirecrackerVM", "machine-config has been set");
@@ -498,7 +498,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         const response = yield* socketRequest({
           firecrackerSocketPath: `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`,
           method: "PUT",
-          url: `${FIRECRACKER_URL}/actions`,
+          url: `/actions`,
           body: {
             action_type: "InstanceStart",
           },
@@ -592,7 +592,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
             jailerBinaryPath: JAILER_BINARY,
             firecrackerBinaryPath: FIRECRACKER_BINARY,
             vmId: vmConfig.vmId,
-            root: `${STARTING_DIRECTORY}/jailer`,
+            root: path.join(STARTING_DIRECTORY, "jailer"),
           })
           .pipe(Effect.fork);
 
