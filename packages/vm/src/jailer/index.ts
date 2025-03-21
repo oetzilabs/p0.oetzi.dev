@@ -82,12 +82,12 @@ export class JailerService extends Effect.Service<JailerService>()("@p0/vm/jaile
           );
         }
 
-        const socketPathExists = yield* fs.exists(config.socketPath);
-        if (!socketPathExists) {
-          return yield* Effect.fail(
-            JailerMissingSocketPath.make({ message: `Socket path does not exist: ${config.socketPath}` })
-          );
-        }
+        // const socketPathExists = yield* fs.exists(config.socketPath);
+        // if (!socketPathExists) {
+        //   return yield* Effect.fail(
+        //     JailerMissingSocketPath.make({ message: `Socket path does not exist: ${config.socketPath}` })
+        //   );
+        // }
 
         const jailerCommand = Command.make(
           config.jailerBinaryPath,
