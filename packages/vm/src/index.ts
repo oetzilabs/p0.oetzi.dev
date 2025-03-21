@@ -194,7 +194,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       }
 
       // This is what jailer expects, a relative path FROM the chroot base dir
-      return jailedDestination;
+      return destination;
     });
 
     const ROOTFS_BINARY = yield* Effect.gen(function* (_) {
@@ -340,7 +340,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         }
       }
 
-      return path.join(jailedDestination.replace(".squashfs", ".ext4"));
+      return path.join(STARTING_DIRECTORY, path.basename(dl).replace(".squashfs", ".ext4"));
     });
 
     const { FIRECRACKER_BINARY, JAILER_BINARY } = yield* Effect.gen(function* (_) {
