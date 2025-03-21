@@ -106,14 +106,14 @@ export class JailerService extends Effect.Service<JailerService>()("@p0/vm/jaile
 
         const jailerProcess = yield* run_command(jailerCommand, "jailer");
 
-        const jailerExitCode = yield* jailerProcess.exitCode;
-        if (jailerExitCode !== 0) {
-          return yield* Effect.fail(
-            JailerFailedToStart.make({
-              message: `Jailer failed to start with exit code ${jailerExitCode}`,
-            })
-          );
-        }
+        // const jailerExitCode = yield* jailerProcess.exitCode;
+        // if (jailerExitCode !== 0) {
+        //   return yield* Effect.fail(
+        //     JailerFailedToStart.make({
+        //       message: `Jailer failed to start with exit code ${jailerExitCode}`,
+        //     })
+        //   );
+        // }
 
         yield* Ref.update(jailedProcess, (map) => {
           map.set(

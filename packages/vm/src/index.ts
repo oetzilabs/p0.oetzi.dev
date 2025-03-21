@@ -4,7 +4,12 @@ import { BaseLoggerLive, BaseLoggerService } from "@p0/core/src/logger";
 import { downloaded_file, get_safe_path } from "@p0/core/src/utils";
 import { FileDownload } from "@p0/core/src/utils/schemas";
 import { Config, Duration, Effect, pipe, Ref, Stream } from "effect";
-import { FireCrackerDownloadFailed, FireCrackerFailedToBoot, FireCrackerVmNotCreated } from "./errors";
+import {
+  FireCrackerDownloadFailed,
+  FireCrackerFailedToBoot,
+  FirecrackerJailerFailed,
+  FireCrackerVmNotCreated,
+} from "./errors";
 import {
   DriveSchema,
   VmConfigSchema,
@@ -581,12 +586,22 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         yield* logger.info("run", "jailing");
         // TODO: Check if the VM is already jailed
-        const jailerVMId = yield* jailer.jail({
-          jailerBinaryPath: JAILER_BINARY,
-          firecrackerBinaryPath: FIRECRACKER_BINARY,
-          socketPath: `/tmp/firecracker-${firecracker_vm}.sock`,
-          vmId: firecracker_vm,
-        });
+        const jailerVMId = yield* jailer
+          .jail({
+            jailerBinaryPath: JAILER_BINARY,
+            firecrackerBinaryPath: FIRECRACKER_BINARY,
+            socketPath: `/tmp/firecracker-${firecracker_vm}.sock`,
+            vmId: firecracker_vm,
+          })
+          .pipe(
+            Effect.catchTags({
+              SystemError: (e) =>
+                Effect.fail(FirecrackerJailerFailed.make({ message: e.message, vmId: firecracker_vm })),
+              BadArgument: (e) =>
+                Effect.fail(FirecrackerJailerFailed.make({ message: e.message, vmId: firecracker_vm })),
+            })
+          );
+
         yield* logger.info("run", "jailed vm", jailerVMId);
 
         // const executionResult = yield* executeCodeInVM(vmId, language, config.timeout || 10);

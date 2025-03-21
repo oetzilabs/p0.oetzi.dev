@@ -55,3 +55,11 @@ export class FireCrackerFailedToStartVM extends Schema.TaggedError<FireCrackerFa
     message: Schema.String,
   }
 ) {}
+
+export class FirecrackerJailerFailed extends Schema.TaggedError<FirecrackerJailerFailed>()(
+  "FirecrackerJailerFailed",
+  {
+    message: Schema.String,
+    vmId: Schema.String,
+  }
+) {}
