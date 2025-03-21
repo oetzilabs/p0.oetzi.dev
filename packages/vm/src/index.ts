@@ -1,16 +1,11 @@
 import { Command, FileSystem, Path } from "@effect/platform";
 import { cuid2 } from "@p0/core/src/cuid2";
 import { BaseLoggerLive, BaseLoggerService } from "@p0/core/src/logger";
-import { downloaded_file, get_safe_path, run_command_withLogger } from "@p0/core/src/utils";
+import { downloaded_file, get_safe_path } from "@p0/core/src/utils";
 import { FileDownload } from "@p0/core/src/utils/schemas";
-import { Chunk, Config, Duration, Effect, Ref, Stream } from "effect";
-import { fetch as undici_fetch, Client } from "undici";
-import {
-  FireCrackerDownloadFailed,
-  FireCrackerFailedToBoot,
-  FireCrackerFailedToStartVM,
-  FireCrackerVmNotCreated,
-} from "./errors";
+import { Config, Duration, Effect, pipe, Ref, Stream } from "effect";
+import { Client, fetch as undici_fetch } from "undici";
+import { FireCrackerDownloadFailed, FireCrackerFailedToBoot, FireCrackerVmNotCreated } from "./errors";
 import {
   DriveSchema,
   VmConfigSchema,
@@ -20,6 +15,7 @@ import {
   type Run,
   type VmConfig,
 } from "./schema";
+import { HttpModemLive, HttpModemService, type ModemOptions } from "./modem";
 
 const makeDispatcher = (host: string, socketPath: string) =>
   new Client(host, {
@@ -39,6 +35,14 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
   effect: Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
     const path = yield* _(Path.Path);
+    const base_modem = yield* _(HttpModemService);
+    const modem_dialer = (options: Omit<ModemOptions, "connectionTimeout" | "timeout">) =>
+      base_modem.build({
+        connectionTimeout: 1000,
+        timeout: 1000,
+        socketPath: options.socketPath,
+        headers: options.headers,
+      }).dial;
     const base_logger = yield* _(BaseLoggerService);
     const logger = base_logger.withGroup("firecracker");
     const separator = process.platform === "win32" ? ";" : ":";
@@ -65,6 +69,31 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       }
       return version;
     };
+    const run_command = (com: Command.Command, area: string) =>
+      Effect.gen(function* (_) {
+        const _process = yield* pipe(
+          Command.start(com),
+          Effect.flatMap((_process) =>
+            Effect.gen(function* (_) {
+              const stdoutStream = _process.stdout.pipe(Stream.decodeText("utf8"));
+              const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));
+
+              yield* stdoutStream.pipe(
+                Stream.runForEach((line) => logger.info(area, line)),
+                Effect.fork
+              );
+
+              // Accumulate output from stderr
+              yield* stderrStream.pipe(
+                Stream.runForEach((line) => logger.error(area, line)),
+                Effect.fork
+              );
+              return _process;
+            })
+          )
+        );
+        return _process;
+      });
 
     // Constants
     const DOWNLOAD_LINKS = {
@@ -174,7 +203,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           Command.workingDirectory(STARTING_DIRECTORY),
           env
         );
-        const unsquashfs_process = yield* run_command_withLogger(unsquashfs_com, "downloadRootfs", logger);
+        const unsquashfs_process = yield* run_command(unsquashfs_com, "downloadRootfs");
 
         const unsquashfs_exit_code = yield* unsquashfs_process.exitCode;
         if (unsquashfs_exit_code !== 0) {
@@ -197,7 +226,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           env
         );
 
-        const ssh_keygen_process = yield* run_command_withLogger(ssh_keygen_com, "downloadRootfs", logger);
+        const ssh_keygen_process = yield* run_command(ssh_keygen_com, "downloadRootfs");
         const ssh_keygen_exit_code = yield* ssh_keygen_process.exitCode;
         if (ssh_keygen_exit_code !== 0) {
           return yield* Effect.fail(
@@ -212,7 +241,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           Command.workingDirectory(path.join(STARTING_DIRECTORY, unsquashed_folder, "root", ".ssh")),
           env
         );
-        const cp_process = yield* run_command_withLogger(cp_com, "downloadRootfs", logger);
+        const cp_process = yield* run_command(cp_com, "downloadRootfs");
         const cp_exit_code = yield* cp_process.exitCode;
         if (cp_exit_code !== 0) {
           return yield* Effect.fail(
@@ -231,7 +260,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           "root:root",
           path.join(STARTING_DIRECTORY, unsquashed_folder)
         ).pipe(Command.workingDirectory(STARTING_DIRECTORY), env);
-        const chown_process = yield* run_command_withLogger(chown_com, "downloadRootfs", logger);
+        const chown_process = yield* run_command(chown_com, "downloadRootfs");
         const chown_exit_code = yield* chown_process.exitCode;
         if (chown_exit_code !== 0) {
           return yield* Effect.fail(
@@ -249,7 +278,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           path.basename(dl.os).replace(".squashfs", ".ext4")
         ).pipe(Command.workingDirectory(STARTING_DIRECTORY), env);
 
-        const truncate_process = yield* run_command_withLogger(truncate_com, "downloadRootfs", logger);
+        const truncate_process = yield* run_command(truncate_com, "downloadRootfs");
         const truncate_exit_code = yield* truncate_process.exitCode;
         if (truncate_exit_code !== 0) {
           return yield* Effect.fail(
@@ -268,7 +297,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           path.basename(dl.os).replace(".squashfs", ".ext4")
         ).pipe(Command.workingDirectory(STARTING_DIRECTORY), env);
 
-        const mkfs_ext4_process = yield* run_command_withLogger(mkfs_ext4_com, "downloadRootfs", logger);
+        const mkfs_ext4_process = yield* run_command(mkfs_ext4_com, "downloadRootfs");
         const mkfs_ext4_exit_code = yield* mkfs_ext4_process.exitCode;
         if (mkfs_ext4_exit_code !== 0) {
           return yield* Effect.fail(
@@ -311,7 +340,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           env
         );
 
-        const untar_process = yield* run_command_withLogger(untar_com, "FIRECRACKER_BINARY", logger);
+        const untar_process = yield* run_command(untar_com, "FIRECRACKER_BINARY");
         const untar_exit_code = yield* untar_process.exitCode;
         if (untar_exit_code !== 0) {
           return yield* Effect.fail(
@@ -336,11 +365,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const close = (firecrackerSocketPath: string) =>
       Effect.gen(function* (_) {
         // if the socket is being used, kill the process
-        const killProcess = yield* run_command_withLogger(
-          Command.make("fuser", "-k", firecrackerSocketPath),
-          "close",
-          logger
-        );
+        const killProcess = yield* run_command(Command.make("fuser", "-k", firecrackerSocketPath), "close");
         const killExitCode = yield* killProcess.exitCode;
         if (killExitCode !== 0) {
           return yield* Effect.fail(
@@ -362,11 +387,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         );
 
         // run in the background
-        yield* run_command_withLogger(
-          firecrackerCommand,
-          "createFirecrackerVM",
-          logger
-        ).pipe(Effect.fork);
+        yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
 
         yield* Effect.sleep(Duration.millis(500));
 
@@ -456,35 +477,22 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         return config.vmId;
       });
 
-    const socket_curl_request = ({ firecrackerSocketPath, method, url, body }: SocketCurlRequest) =>
+    const socket_curl_request = (scr: SocketCurlRequest) =>
       Effect.gen(function* (_) {
-        const command = Command.make(
-          "curl",
-          "--unix-socket",
-          firecrackerSocketPath,
-          "-X",
-          method.toUpperCase(),
-          "-H", // Add Content-Type header
-          "Content-Type: application/json",
-          "-H",
-          "Accept: application/json",
-          "--data",
-          JSON.stringify(body),
-          url
-        ).pipe(Command.workingDirectory(STARTING_DIRECTORY), env);
-        // yield* logger.info("socket_curl_request", command.toString());
-
-        const process = yield* run_command_withLogger(command, "socket_curl_request", logger);
-        const exit_code = yield* process.exitCode;
-        if (exit_code !== 0) {
-          return yield* Effect.fail(
-            FireCrackerFailedToBoot.make({
-              path: url,
-              message: "Failed to curl request",
-            })
-          );
-        }
-        return yield* Effect.succeed(true);
+        const dialer = modem_dialer({ socketPath: scr.firecrackerSocketPath });
+        return yield* dialer({
+          path: scr.url,
+          method: scr.method,
+          data: JSON.stringify(scr.body),
+          statusCodes: {
+            204: true,
+            400: "BadRequest",
+          },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        });
       });
 
     const socket_fetch = (
@@ -625,7 +633,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     return { run, close } as const;
   }),
-  dependencies: [BaseLoggerLive],
+  dependencies: [BaseLoggerLive, HttpModemLive],
 }) {}
 
 export const FirecrackerLive = FirecrackerService.Default;
