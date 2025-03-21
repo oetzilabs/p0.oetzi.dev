@@ -9,6 +9,7 @@ import {
   JailerMissingSocketPath,
   JailerNotJailedYet,
 } from "./errors";
+import { userInfo } from "os";
 
 export class JailerService extends Effect.Service<JailerService>()("@p0/vm/jailer/repo", {
   effect: Effect.gen(function* (_) {
@@ -19,6 +20,9 @@ export class JailerService extends Effect.Service<JailerService>()("@p0/vm/jaile
     const logger = base_logger.withGroup("firecracker");
     const separator = process.platform === "win32" ? ";" : ":";
     const arch = process.arch === "x64" ? "x86_64" : "aarch64";
+
+    const UID = userInfo().uid;
+    const GID = userInfo().gid;
 
     const PathConfig = yield* Config.string("PATH").pipe(Config.withDefault(""));
     const PATH = PathConfig.split(separator)
@@ -91,6 +95,10 @@ export class JailerService extends Effect.Service<JailerService>()("@p0/vm/jaile
           config.vmId,
           "--exec-file",
           config.firecrackerBinaryPath,
+          "--gid",
+          String(GID),
+          "--uid",
+          String(UID),
           "--",
           "--api-sock",
           config.socketPath
