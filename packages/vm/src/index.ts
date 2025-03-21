@@ -418,7 +418,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         // const waitingTimeBetweenCommands = Duration.millis(500);
 
-        yield* logger.info("createFirecrackerVM", "boot-source", JSON.stringify(config.boot_source));
+        yield* logger.info("createFirecrackerVM", "boot-source", config.boot_source);
         yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
@@ -428,7 +428,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("createFirecrackerVM", "boot-source has been set");
         // yield* Effect.sleep(waitingTimeBetweenCommands);
 
-        yield* logger.info("createFirecrackerVM", "drives", JSON.stringify(config.drives));
+        yield* logger.info("createFirecrackerVM", "drives", config.drives);
         for (const drive of config.drives) {
           yield* socketRequest({
             firecrackerSocketPath: vmSocketPath,
@@ -453,7 +453,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         // }
         // yield* logger.info("createFirecrackerVM", "network-interfaces have been set");
 
-        yield* logger.info("createFirecrackerVM", "machine-config", JSON.stringify(config.machine_config));
+        yield* logger.info("createFirecrackerVM", "machine-config", config.machine_config);
         yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
@@ -487,7 +487,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const startFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
         const response = yield* socketRequest({
-          firecrackerSocketPath: `/tmp/firecracker-${vmId}.sock`,
+          firecrackerSocketPath: `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`,
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
           body: {
@@ -534,7 +534,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const destroyFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = `/tmp/firecracker-${vmId}.sock`;
+        const vmSocketPath = `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
         const response = yield* socketRequest({
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
@@ -582,7 +582,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           .jail({
             jailerBinaryPath: JAILER_BINARY,
             firecrackerBinaryPath: FIRECRACKER_BINARY,
-            socketPath: `/tmp/firecracker-${vmConfig.vmId}.sock`,
+            socketPath: `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmConfig.vmId}/root/run/firecracker.socket`,
             vmId: vmConfig.vmId,
           })
           .pipe(
