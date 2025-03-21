@@ -388,7 +388,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const settingUpFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = `srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${config.vmId}/root/tmp/firecracker-${config.vmId}.sock`;
+        const vmSocketPath = `/srv/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${config.vmId}/root/tmp/firecracker-${config.vmId}.sock`;
         yield* logger.info("createFirecrackerVM", "vmSocketPath", vmSocketPath);
         yield* logger.info("createFirecrackerVM", "FIRECRACKER_BINARY", FIRECRACKER_BINARY);
         // const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
