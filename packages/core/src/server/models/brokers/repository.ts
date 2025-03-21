@@ -13,10 +13,8 @@ import {
 } from "./errors";
 import type { CreateBrokerSchema, FindBrokerByNameSchema, RemoveBrokerSchema } from "./schemas";
 
-// Define a schema for the "User"
 export class Broker extends Schema.Class<Broker>("@p0/core/actor")({ id: Schema.String }) {}
 
-// Define a Context.Tag for the authenticated user
 export class CurrentBroker extends Context.Tag("@p0/core/actor/current")<CurrentBroker, Broker>() {}
 
 export class BrokerRepository extends Effect.Service<BrokerRepository>()("@p0/core/actor/repo", {
@@ -36,8 +34,9 @@ export class BrokerRepository extends Effect.Service<BrokerRepository>()("@p0/co
         const _brokers = yield* create_actor;
 
         if (_brokers.length !== 1) return yield* Effect.fail(new BrokerNotCreated());
-
-        return yield* Effect.succeed(_brokers[0]);
+        const broker = _brokers[0];
+        if (!broker) return yield* Effect.fail(new BrokerNotCreated());
+        return yield* Effect.succeed(broker);
       });
 
     const find_by_url = (url: typeof FindBrokerByNameSchema.Type) =>
@@ -63,15 +62,16 @@ export class BrokerRepository extends Effect.Service<BrokerRepository>()("@p0/co
         const _actor_session = yield* get_actor_session;
         if (_actor_session.length !== 1) return yield* Effect.fail(new BrokerNotFound());
 
-        const _actor = _actor_session[0].brokers;
+        const actor = _actor_session[0];
+        if (!actor) return yield* Effect.fail(new BrokerNotFound());
+
+        const _actor = actor.brokers;
         if (!_actor) return yield* Effect.fail(new BrokerNotFound());
         return yield* Effect.succeed(_actor);
       });
 
     const remove = (id: typeof RemoveBrokerSchema.Type) =>
       Effect.gen(function* (_) {
-        // const repo = yield* _(BrokerRepository);
-
         const _brokers = yield* Effect.tryPromise(() =>
           db.select().from(brokers).where(eq(brokers.id, id)).limit(1).execute()
         );
@@ -90,7 +90,9 @@ export class BrokerRepository extends Effect.Service<BrokerRepository>()("@p0/co
 
         if (removed_brokers.length !== 1) return yield* Effect.fail(new BrokerNotDeleted());
 
-        return yield* Effect.succeed(removed_brokers[0]);
+        const broker = removed_brokers[0];
+        if (!broker) return yield* Effect.fail(new BrokerNotDeleted());
+        return yield* Effect.succeed(broker);
       });
 
     const all_non_deleted = Effect.gen(function* (_) {
@@ -115,7 +117,9 @@ export class BrokerRepository extends Effect.Service<BrokerRepository>()("@p0/co
         );
         const _brokers = yield* get_actor;
         if (_brokers.length !== 1) return yield* Effect.fail(new BrokerNotFound());
-        return yield* Effect.succeed(_brokers[0]);
+        const broker = _brokers[0];
+        if (!broker) return yield* Effect.fail(new BrokerNotFound());
+        return yield* Effect.succeed(broker);
       });
 
     return {

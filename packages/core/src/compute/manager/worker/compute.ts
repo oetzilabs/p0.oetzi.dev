@@ -7,7 +7,7 @@ const WorkerLive = Effect.gen(function* () {
   yield* Runner.make((config: ComputeTask["config"]) =>
     Stream.fromEffect(
       Effect.gen(function* (_) {
-        const userCode = config.script ?? "async function main(pl, mods) { throw new Error('No script provided') }"; // Assuming payload has a 'code' property
+        const userCode = config.script ?? "async function main(pl, mods) { throw new Error('No script provided') }";
         const entryPoint = "main";
 
         // Define the allowed modules
@@ -19,7 +19,6 @@ const WorkerLive = Effect.gen(function* () {
           customFunction: (x: number) => x * 2, // Example custom function
         };
 
-        // Construct the function dynamically, passing allowedModules as an argument
         const sandbox = new Function(
           "payload",
           "allowedModules",

@@ -7,7 +7,6 @@ import { actors } from "./actors";
 export const sessions = commonTable(
   "sessions",
   {
-    // here will be parameters for the session
     bearer_token: t.text().notNull(),
     actor_id: t
       .text()

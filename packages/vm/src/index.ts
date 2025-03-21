@@ -50,7 +50,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     });
     yield* logger.info("composer", "Starting Firecracker composer");
 
-    // helper functions
     const getMainVersion = <V extends typeof FIRECRACKER_VERSION>(version: V) => {
       const versionParts = version.split(".") as [string, string, string] | [string, string];
       if (versionParts.length === 3) {
@@ -76,7 +75,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
                 Effect.fork
               );
 
-              // Accumulate output from stderr
               yield* stderrStream.pipe(
                 Stream.runForEach((line) => logger.error(area, line)),
                 Effect.fork
@@ -95,7 +93,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       "v1.10": "22.04",
     };
 
-    // Constants
     const DOWNLOAD_LINK = (arch: string, version: string) =>
       `https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/${version}/${arch}/ubuntu-${UBUNTU_VERSIONS[version]}.squashfs`;
 
@@ -237,7 +234,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
             })
           );
         }
-        // cp id_rsa.pub authorized_keys
+
         const cp_com = Command.make("cp", `${id_rsa_name}.pub`, "authorized_keys").pipe(
           Command.workingDirectory(path.join(STARTING_DIRECTORY, unsquashed_folder, "root", ".ssh")),
           env
@@ -253,7 +250,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           );
         }
 
-        // sudo chown -R root:root unsquashed_folder
         const chown_com = Command.make(
           "sudo",
           "chown",
@@ -335,7 +331,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         yield* logger.info("FIRECRACKER_BINARY", `Untaring the ${downloadPath}`);
 
-        // untar the downloaded file
         const untar_com = Command.make("tar", "-xzf", downloadPath).pipe(
           Command.workingDirectory(STARTING_DIRECTORY),
           env
@@ -360,12 +355,10 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       );
     });
 
-    // Refs
     const vmCollection = yield* Ref.make(new Map<string, Effect.Effect<void, any, any>>());
 
     const close = (firecrackerSocketPath: string) =>
       Effect.gen(function* (_) {
-        // if the socket is being used, kill the process
         const killProcess = yield* run_command(Command.make("fuser", "-k", firecrackerSocketPath), "close");
         const killExitCode = yield* killProcess.exitCode;
         if (killExitCode !== 0) {
@@ -386,12 +379,10 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("createFirecrackerVM", "FIRECRACKER_BINARY", FIRECRACKER_BINARY);
         const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
 
-        // run in the background
         yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
 
         yield* Effect.sleep(Duration.millis(100));
 
-        // does the socket path exist?
         const vmSocketPathExists = yield* fs.exists(vmSocketPath);
         if (!vmSocketPathExists) {
           return yield* Effect.fail(
@@ -413,7 +404,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         const waitingTimeBetweenCommands = Duration.millis(500);
 
-        // first boot-source
         yield* logger.info("createFirecrackerVM", "boot-source", JSON.stringify(config.boot_source));
         yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
@@ -424,7 +414,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("createFirecrackerVM", "boot-source has been set");
         yield* Effect.sleep(waitingTimeBetweenCommands);
 
-        // then drives
         yield* logger.info("createFirecrackerVM", "drives", JSON.stringify(config.drives));
         for (const drive of config.drives) {
           yield* socketRequest({
@@ -437,7 +426,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("createFirecrackerVM", "drives have been set");
         yield* Effect.sleep(waitingTimeBetweenCommands);
 
-        // // then network-interfaces
         // yield* logger.info("createFirecrackerVM", "network-interfaces", JSON.stringify(config.network_interfaces));
         // const networkInterfacesResponse = yield* socket_fetch(
         //   "PUT",
@@ -451,7 +439,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         // }
         // yield* logger.info("createFirecrackerVM", "network-interfaces have been set");
 
-        // then machine-config
         yield* logger.info("createFirecrackerVM", "machine-config", JSON.stringify(config.machine_config));
         yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
@@ -462,7 +449,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("createFirecrackerVM", "machine-config has been set");
         yield* Effect.sleep(waitingTimeBetweenCommands);
 
-        // return the vmId
         return config.vmId;
       });
 
@@ -486,11 +472,8 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const startFirecrackerVM = (vmId: VmId) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = `/tmp/firecracker-${vmId}.sock`;
-
-        // unix-socket send action
         const response = yield* socketRequest({
-          firecrackerSocketPath: vmSocketPath,
+          firecrackerSocketPath: `/tmp/firecracker-${vmId}.sock`,
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
           body: {

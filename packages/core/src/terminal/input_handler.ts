@@ -9,19 +9,12 @@ export const FocusableComponents = {
 } as const;
 
 export const InputStringToHex = {
-  // q
   q: "71",
-  // k
   k: "6b",
-  // j
   j: "6a",
-  // h
   h: "68",
-  // l
   l: "6c",
-  // ?
   question: "3f",
-  // CTRL+C
   ctrl_c: "3",
 } as const;
 

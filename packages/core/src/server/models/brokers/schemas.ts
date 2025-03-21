@@ -15,6 +15,7 @@ export const BrokerSchema = Schema.Struct({
 });
 
 export const NullableBrokerSchema = Schema.NullOr(BrokerSchema);
+export const UndefinableBrokerSchema = Schema.UndefinedOr(BrokerSchema);
 
 export const ListBrokersSchema = Schema.Array(BrokerSchema);
 

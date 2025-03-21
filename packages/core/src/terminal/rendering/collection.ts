@@ -1,7 +1,6 @@
 import { Effect, SubscriptionRef } from "effect";
 import { createComponent, type Component } from "./component";
 
-// Component Layers
 export const TextComponent = createComponent<string>;
 export type TextComponent = typeof TextComponent;
 
@@ -22,7 +21,6 @@ type ButtonEvents = {
   [K in ButtonEventNames]?: (opts: EventOpts<ButtonComponentType, K>) => Effect.Effect<void, never, never>;
 };
 
-// Use a type alias instead of ReturnType for better type inference
 type ButtonComponentType = {
   data: SubscriptionRef.SubscriptionRef<string>;
   render: Effect.Effect<string, never, never>;
@@ -70,10 +68,3 @@ export const ButtonComponent = (content: string) =>
 export type ButtonComponent = typeof ButtonComponent;
 
 export type ComponentCollection = TextComponent | NumberComponent | BooleanComponent | ButtonComponent;
-
-// Example Usage
-// const ExampleButton = Effect.gen(function* (_) {
-//   const buttonComponent = yield* ButtonComponent("Hi :)");
-//   yield* buttonComponent.on("click", ({ target }) => target.update((old_content) => old_content + "x"));
-//   return buttonComponent;
-// });

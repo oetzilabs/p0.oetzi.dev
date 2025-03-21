@@ -1,4 +1,6 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
+import { Schema } from "effect";
+import { Authorization } from "../middlewares/authorization";
 import {
   ServerAlreadyDeleted,
   ServerAlreadyExists,
@@ -6,9 +8,6 @@ import {
   ServerNotDeleted,
   ServerNotFound,
 } from "../models/servers/errors";
-import { Effect, Layer, pipe, Schema } from "effect";
-import { Authorization, AuthorizationLive } from "../middlewares/authorization";
-import { ServerRepository } from "../models/servers/repository";
 import { CreateServerSchema, ListServersSchema, NullableServerSchema } from "../models/servers/schemas";
 
 const ServerIdParam = HttpApiSchema.param("sid", Schema.String);

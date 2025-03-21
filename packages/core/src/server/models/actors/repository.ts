@@ -3,20 +3,11 @@ import { Context, Effect, Schema } from "effect";
 import { Database, DatabaseLive } from "../../../db";
 import { actors } from "../../../db/schemas/actors";
 import { sessions } from "../../../db/schemas/sessions";
-import {
-  ActorNotFound,
-  ActorAlreadyDeleted,
-  ActorNotDeleted,
-  ActorNotUpdated,
-  ActorNotCreated,
-  ActorAlreadyExists,
-} from "./errors";
+import { ActorAlreadyDeleted, ActorAlreadyExists, ActorNotCreated, ActorNotDeleted, ActorNotFound } from "./errors";
 import type { CreateActorSchema, FindActorByNameSchema, RemoveActorSchema } from "./schemas";
 
-// Define a schema for the "User"
 export class Actor extends Schema.Class<Actor>("@p0/core/actor")({ id: Schema.String }) {}
 
-// Define a Context.Tag for the authenticated user
 export class CurrentActor extends Context.Tag("@p0/core/actor/current")<CurrentActor, Actor>() {}
 
 export class ActorRepository extends Effect.Service<ActorRepository>()("@p0/core/actor/repo", {
@@ -37,7 +28,10 @@ export class ActorRepository extends Effect.Service<ActorRepository>()("@p0/core
 
         if (_actors.length !== 1) return yield* Effect.fail(new ActorNotCreated());
 
-        return yield* Effect.succeed(_actors[0]);
+        const actor = _actors[0];
+        if (!actor) return yield* Effect.fail(new ActorNotCreated());
+
+        return yield* Effect.succeed(actor);
       });
 
     const find_by_name = (name: typeof FindActorByNameSchema.Type) =>
@@ -62,16 +56,15 @@ export class ActorRepository extends Effect.Service<ActorRepository>()("@p0/core
         );
         const _actor_session = yield* get_actor_session;
         if (_actor_session.length !== 1) return yield* Effect.fail(new ActorNotFound());
-
-        const _actor = _actor_session[0].actors;
-        if (!_actor) return yield* Effect.fail(new ActorNotFound());
+        const session = _actor_session[0];
+        if (!session) return yield* Effect.fail(ActorNotFound);
+        const _actor = session.actors;
+        if (!_actor) return yield* Effect.fail(ActorNotFound);
         return yield* Effect.succeed(_actor);
       });
 
     const remove = (id: typeof RemoveActorSchema.Type) =>
       Effect.gen(function* (_) {
-        // const repo = yield* _(ActorRepository);
-
         const _actors = yield* Effect.tryPromise(() =>
           db.select().from(actors).where(eq(actors.id, id)).limit(1).execute()
         );
@@ -89,8 +82,9 @@ export class ActorRepository extends Effect.Service<ActorRepository>()("@p0/core
         );
 
         if (removed_actors.length !== 1) return yield* Effect.fail(new ActorNotDeleted());
-
-        return yield* Effect.succeed(removed_actors[0]);
+        const actor = removed_actors[0];
+        if (!actor) return yield* Effect.fail(new ActorNotFound());
+        return yield* Effect.succeed(actor);
       });
 
     const all_non_deleted = Effect.gen(function* (_) {
@@ -113,7 +107,9 @@ export class ActorRepository extends Effect.Service<ActorRepository>()("@p0/core
         const get_actor = Effect.tryPromise(() => db.select().from(actors).where(eq(actors.id, id)).limit(1).execute());
         const _actors = yield* get_actor;
         if (_actors.length !== 1) return yield* Effect.fail(new ActorNotFound());
-        return yield* Effect.succeed(_actors[0]);
+        const actor = _actors[0];
+        if (!actor) return yield* Effect.fail(new ActorNotFound());
+        return yield* Effect.succeed(actor);
       });
 
     return {

@@ -27,8 +27,9 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
         const _servers = yield* create_server;
 
         if (_servers.length !== 1) return yield* Effect.fail(new ServerNotCreated());
-
-        return yield* Effect.succeed(_servers[0]);
+        const server = _servers[0];
+        if (!server) return yield* Effect.fail(new ServerNotCreated());
+        return yield* Effect.succeed(server);
       });
 
     const find_by_name = (name: typeof FindServerByNameSchema.Type) =>
@@ -38,12 +39,12 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
         );
         const _servers = yield* get_server;
         if (_servers.length !== 1) return yield* Effect.fail(new ServerNotFound());
-        return yield* Effect.succeed(_servers[0]);
+        const server = _servers[0];
+        if (!server) return yield* Effect.fail(new ServerNotFound());
+        return yield* Effect.succeed(server);
       });
     const remove = (id: typeof RemoveServerSchema.Type) =>
       Effect.gen(function* (_) {
-        // const repo = yield* _(ServerRepository);
-
         const _servers = yield* Effect.tryPromise(() =>
           db.select().from(servers).where(eq(servers.id, id)).limit(1).execute()
         );
@@ -61,8 +62,9 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
         );
 
         if (removed_servers.length !== 1) return yield* Effect.fail(new ServerNotDeleted());
-
-        return yield* Effect.succeed(removed_servers[0]);
+        const server = removed_servers[0];
+        if (!server) return yield* Effect.fail(new ServerNotDeleted());
+        return yield* Effect.succeed(server);
       });
 
     const all_non_deleted = Effect.gen(function* (_) {
@@ -87,7 +89,9 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
         );
         const _servers = yield* get_server;
         if (_servers.length !== 1) return yield* Effect.fail(new ServerNotFound());
-        return yield* Effect.succeed(_servers[0]);
+        const server = _servers[0];
+        if (!server) return yield* Effect.fail(new ServerNotFound());
+        return yield* Effect.succeed(server);
       });
 
     return {

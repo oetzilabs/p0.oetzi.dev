@@ -43,10 +43,8 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
           );
 
           const _process = yield* pipe(
-            // Start running the command and return a handle to the running process
             Command.start(com),
             Effect.flatMap((_process) => {
-              // Capture the stream and update the state
               return Effect.gen(function* () {
                 const stdoutStream = _process.stdout.pipe(Stream.decodeText("utf8"));
                 const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));
@@ -74,7 +72,6 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
                   }))
                 );
 
-                // Accumulate output from stdout
                 yield* _(
                   stdoutStream.pipe(
                     Stream.runForEach((line) =>
@@ -96,7 +93,6 @@ export class ProcessManagerService extends Effect.Service<ProcessManagerService>
                   Effect.fork
                 );
 
-                // Accumulate output from stderr
                 yield* _(
                   stderrStream.pipe(
                     Stream.runForEach((line) =>

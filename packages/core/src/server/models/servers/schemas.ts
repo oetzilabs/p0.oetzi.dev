@@ -16,6 +16,7 @@ export const ServerSchema = Schema.Struct({
 });
 
 export const NullableServerSchema = Schema.NullOr(ServerSchema);
+export const UndefinableServerSchema = Schema.UndefinedOr(ServerSchema);
 
 export const ListServersSchema = Schema.Array(ServerSchema);
 

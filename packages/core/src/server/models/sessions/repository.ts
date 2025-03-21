@@ -11,7 +11,7 @@ import {
   SessionNotFound,
 } from "./errors";
 import { CreateSessionSchema, RemoveSessionSchema } from "./schemas";
-import type { Prettify } from "valibot";
+import type { Prettify } from "../../../utils";
 
 type SessionPrettified = Prettify<{ bearer_token: Redacted.Redacted<string> } & Omit<SessionInfo, "bearer_token">>;
 
@@ -43,8 +43,11 @@ export class SessionRepository extends Effect.Service<SessionRepository>()("@p0/
 
         if (_sessions.length !== 1) return yield* Effect.fail(new SessionNotCreated());
         yield* Effect.log("created session", _sessions[0]);
-        const redacted_session: SessionPrettified = Object.assign(_sessions[0], {
-          bearer_token: Redacted.make(_sessions[0].bearer_token),
+        const session = _sessions[0];
+
+        if (!session) return yield* Effect.fail(new SessionNotCreated());
+        const redacted_session: SessionPrettified = Object.assign(session, {
+          bearer_token: Redacted.make(session.bearer_token),
         });
         return yield* Effect.succeed(redacted_session);
       });
@@ -69,16 +72,17 @@ export class SessionRepository extends Effect.Service<SessionRepository>()("@p0/
 
         if (removed_sessions.length !== 1) return yield* Effect.fail(new SessionNotDeleted());
 
-        const redacted_session: SessionPrettified = Object.assign(removed_sessions[0], {
-          bearer_token: Redacted.make(removed_sessions[0].bearer_token),
+        const session = removed_sessions[0];
+        if (!session) return yield* Effect.fail(new SessionNotFound());
+
+        const redacted_session: SessionPrettified = Object.assign(session, {
+          bearer_token: Redacted.make(session.bearer_token),
         });
         return yield* Effect.succeed(redacted_session);
       });
 
     const remove = (id: typeof RemoveSessionSchema.Type) =>
       Effect.gen(function* (_) {
-        // const repo = yield* _(SessionRepository);
-
         const _sessions = yield* Effect.tryPromise(() =>
           db.select().from(sessions).where(eq(sessions.id, id)).limit(1).execute()
         );
@@ -96,9 +100,10 @@ export class SessionRepository extends Effect.Service<SessionRepository>()("@p0/
         );
 
         if (removed_sessions.length !== 1) return yield* Effect.fail(new SessionNotDeleted());
-
-        const redacted_session: SessionPrettified = Object.assign(removed_sessions[0], {
-          bearer_token: Redacted.make(removed_sessions[0].bearer_token),
+        const session = removed_sessions[0];
+        if (!session) return yield* Effect.fail(new SessionNotFound());
+        const redacted_session: SessionPrettified = Object.assign(session, {
+          bearer_token: Redacted.make(session.bearer_token),
         });
         return yield* Effect.succeed(redacted_session);
       });
@@ -129,8 +134,11 @@ export class SessionRepository extends Effect.Service<SessionRepository>()("@p0/
         const _sessions = yield* get_session;
         if (_sessions.length !== 1) return yield* Effect.fail(new SessionNotFound());
 
-        const redacted_session: SessionPrettified = Object.assign(_sessions[0], {
-          bearer_token: Redacted.make(_sessions[0].bearer_token),
+        const session = _sessions[0];
+        if (!session) return yield* Effect.fail(new SessionNotFound());
+
+        const redacted_session: SessionPrettified = Object.assign(session, {
+          bearer_token: Redacted.make(session.bearer_token),
         });
         return yield* Effect.succeed(redacted_session);
       });

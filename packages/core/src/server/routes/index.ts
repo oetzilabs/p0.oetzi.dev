@@ -1,6 +1,7 @@
 import { HttpApi, HttpApiBuilder, HttpServerResponse, Path } from "@effect/platform";
 import { NotFound } from "@effect/platform/HttpApiError";
-import { Effect, Layer, Option } from "effect";
+import { Effect, Layer } from "effect";
+import { ComputeBinaryNotDownloaded, ComputeBinaryNotExecuted } from "../../compute/errors";
 import { AuthorizationLive } from "../middlewares/authorization";
 import { ActorRepository } from "../models/actors/repository";
 import { BrokerRepository } from "../models/brokers/repository";
@@ -13,8 +14,6 @@ import { ComputeUnitsGroup } from "./compute_units";
 import { PagesGroup } from "./pages";
 import { ServersGroup } from "./servers";
 import { BearerApiSecurity, SessionGroup } from "./sessions";
-import { ComputeUnitTaskNotFound } from "../models/compute_units/errors";
-import { ComputeBinaryNotDownloaded, ComputeBinaryNotExecuted } from "../../compute/errors";
 
 export const AllApis = HttpApi.make("AllApis")
   .add(PagesGroup)
@@ -25,7 +24,6 @@ export const AllApis = HttpApi.make("AllApis")
   .add(ActorsGroup)
   .add(BrokersGroup);
 
-// implement the `Servers` group
 export const ServerApiLive = HttpApiBuilder.group(AllApis, "Servers", (handlers) =>
   Effect.gen(function* (_) {
     yield* Effect.log("creating ServerApiLive");
@@ -39,7 +37,6 @@ export const ServerApiLive = HttpApiBuilder.group(AllApis, "Servers", (handlers)
   })
 ).pipe(Layer.provide(ServerRepository.Default), Layer.provide(AuthorizationLive));
 
-// implement the `Auth` group
 export const SessionApiLive = HttpApiBuilder.group(AllApis, "Session", (handlers) =>
   Effect.gen(function* (_) {
     yield* Effect.log("creating SessionApiLive");
@@ -58,7 +55,6 @@ export const SessionApiLive = HttpApiBuilder.group(AllApis, "Session", (handlers
   })
 ).pipe(Layer.provide(SessionRepository.Default), Layer.provide(AuthorizationLive));
 
-// implement the `Actors` group
 export const ActorsApiLive = HttpApiBuilder.group(AllApis, "Actors", (handlers) =>
   Effect.gen(function* (_) {
     yield* Effect.log("creating ActorsApiLive");
@@ -98,7 +94,6 @@ export const PagesApiLive = HttpApiBuilder.group(AllApis, "Pages", (handlers) =>
           yield* Effect.log(`file path ${file_path}`);
           return yield* HttpServerResponse.file(file_path).pipe(
             Effect.catchTags({
-              // PageNotFound: () => Effect.fail(new NotFound()),
               SystemError: () => Effect.fail(new NotFound()),
               BadArgument: () => Effect.fail(new NotFound()),
             })
@@ -111,7 +106,6 @@ export const PagesApiLive = HttpApiBuilder.group(AllApis, "Pages", (handlers) =>
           yield* Effect.log(`file path ${file_path}`);
           return yield* HttpServerResponse.file(file_path).pipe(
             Effect.catchTags({
-              // PageNotFound: () => Effect.fail(new NotFound()),
               SystemError: () => Effect.fail(new NotFound()),
               BadArgument: () => Effect.fail(new NotFound()),
             })
@@ -164,15 +158,15 @@ export const ComputeUnitApiLive = HttpApiBuilder.group(AllApis, "ComputeUnits", 
             Effect.catchTags({
               ResponseError: (e) =>
                 Effect.fail(
-                  new ComputeBinaryNotDownloaded({
+                  ComputeBinaryNotDownloaded.make({
                     error: e.message,
                   })
                 ),
               BadArgument: (e) => Effect.fail(new ComputeBinaryNotExecuted({ error: e.message })),
-              ComputeUnitBinaryNotUpdated: (e) =>
-                Effect.fail(new ComputeBinaryNotExecuted({ error: "Unit not updated" })),
-              SystemError: (e) => Effect.fail(new ComputeBinaryNotExecuted({ error: e.message })),
-              UnknownException: (e) => Effect.fail(new ComputeBinaryNotExecuted({ error: e.message })),
+              ComputeUnitBinaryNotUpdated: (_e) =>
+                Effect.fail(ComputeBinaryNotExecuted.make({ error: "Unit not updated" })),
+              SystemError: (e) => Effect.fail(ComputeBinaryNotExecuted.make({ error: e.message })),
+              UnknownException: (e) => Effect.fail(ComputeBinaryNotExecuted.make({ error: e.message })),
             })
           );
         })

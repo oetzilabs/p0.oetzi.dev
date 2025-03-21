@@ -1,8 +1,8 @@
 // I took inspiration from https://github.com/apocas/firecrackerode
+import { BaseLoggerLive, BaseLoggerService } from "@p0/core/src/logger";
 import { Effect } from "effect";
 import http from "http";
 import { ModemPayloadError } from "./errors";
-import { BaseLoggerLive, BaseLoggerService } from "@p0/core/src/logger";
 
 export interface ModemOptions {
   socketPath: string;

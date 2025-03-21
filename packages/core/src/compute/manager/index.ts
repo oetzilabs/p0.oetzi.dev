@@ -13,66 +13,14 @@ import {
 import { ComputeBinarySchema, type ComputeBinary, type ComputeTask } from "../schemas";
 import { ComputeRunner, ComputeRunnerLive } from "./runner";
 
-// The Compute Manager service
 export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/compute/manager", {
   effect: Effect.gen(function* (_) {
     const db = yield* _(Database);
-    // Unbounded PubSub for broadcasting tasks
     const pubSub = yield* PubSub.unbounded<ComputeTask>();
     const dequeue = yield* PubSub.subscribe(pubSub);
 
-    // Runner that executes tasks
     const runner = yield* _(ComputeRunner);
 
-    // Add a task to the PubSub
-    // const queue_up = (unit: ComputeUnit) =>
-    //   Effect.gen(function* (_) {
-    //     switch (unit.type) {
-    //       case "task":
-    //         const tasks = yield* Effect.promise(() =>
-    //           db
-    //             .insert(compute_task_units)
-    //             .values({
-    //               config: unit.config,
-    //             })
-    //             .returning()
-    //         );
-    //         if (tasks.length === 0) {
-    //           return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: unit.id }));
-    //         }
-    //         if (!tasks[0]) {
-    //           return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: unit.id }));
-    //         }
-    //         const tid = tasks[0].id.split("_")[1];
-    //         if (!tid) {
-    //           return yield* Effect.fail(new ComputeUnitTaskNotCreated({ id: unit.id }));
-    //         }
-    //         return Cuid2Schema.make(tid);
-    //       case "binary":
-    //         const binaries = yield* Effect.promise(() =>
-    //           db
-    //             .insert(compute_binary_units)
-    //             .values({
-    //               download_url: unit.download_url,
-    //               config: unit.config,
-    //             })
-    //             .returning()
-    //         );
-    //         if (binaries.length === 0) {
-    //           return yield* Effect.fail(new ComputeUnitBinaryNotCreated());
-    //         }
-    //         if (!binaries[0]) {
-    //           return yield* Effect.fail(new ComputeUnitBinaryNotCreated());
-    //         }
-    //         const bid = binaries[0].id.split("_")[1];
-    //         if (!bid) {
-    //           return yield* Effect.fail(new ComputeUnitBinaryNotCreated());
-    //         }
-    //         return Cuid2Schema.make(bid);
-    //     }
-    //   });
-
-    // Add a task to the PubSub
     const queue_up_task = (task: ComputeTask) =>
       Effect.gen(function* (_) {
         const tasks = yield* Effect.promise(() =>
@@ -96,7 +44,6 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         return Cuid2Schema.make(tid);
       });
 
-    // Add a binary to the PubSub
     const queue_up_binary = (binary: ComputeBinary) =>
       Effect.gen(function* (_) {
         const binaries = yield* Effect.promise(() =>
@@ -120,7 +67,7 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         }
         return Cuid2Schema.make(bid);
       });
-    // Remove a task from active tasks (task completed or canceled)
+
     const queue_down_task = (task: ComputeTask) =>
       Effect.gen(function* (_) {
         const removed_task = yield* Effect.promise(() =>
@@ -163,7 +110,6 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         return Cuid2Schema.make(bid);
       });
 
-    // Check if a task is currently active
     const has_task = (task_id: typeof Cuid2Schema.Type) =>
       Effect.gen(function* (_) {
         const tasks = yield* Effect.promise(() =>
@@ -176,7 +122,6 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         return yield* Effect.succeed(tasks.length > 0);
       });
 
-    // Check if a task is currently active
     const has_binary = (binary_id: typeof Cuid2Schema.Type) =>
       Effect.gen(function* (_) {
         const binaries = yield* Effect.promise(() =>
@@ -189,7 +134,6 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         return yield* Effect.succeed(binaries.length > 0);
       });
 
-    // Find a task by ID
     const find_task = (task_id: typeof Cuid2Schema.Type) =>
       Effect.gen(function* (_) {
         const tasks = yield* Effect.promise(() =>
@@ -208,7 +152,6 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         return Option.some(tasks[0]!);
       });
 
-    // Find a task by ID
     const find_binary = (binary_id: typeof Cuid2Schema.Type) =>
       Effect.gen(function* (_) {
         const binaries = yield* Effect.promise(() =>
@@ -232,7 +175,6 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         });
       });
 
-    // Process tasks received from the PubSub
     const process_task = (task: ComputeTask) =>
       Effect.gen(function* (_) {
         const result_stream = runner.execute_task(task);
@@ -246,7 +188,6 @@ export class ComputeManager extends Effect.Service<ComputeManager>()("@p0/core/c
         let lp = binary.local_path;
         if (!lp) {
           lp = yield* runner.prepare_binary(binary);
-          // update the binary with the local path
           const b = yield* Effect.promise(() =>
             db
               .update(compute_binary_units)

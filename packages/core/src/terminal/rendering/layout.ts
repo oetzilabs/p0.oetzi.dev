@@ -1,7 +1,6 @@
 import { Effect, SubscriptionRef } from "effect";
 import { type Component, createComponent } from "./component";
 
-// Use a type alias instead of ReturnType for better type inference
 type LayoutComponentType<T extends any = any> = {
   data: SubscriptionRef.SubscriptionRef<Component<T>[]>;
   render: (join?: string) => Effect.Effect<string, never, never>;

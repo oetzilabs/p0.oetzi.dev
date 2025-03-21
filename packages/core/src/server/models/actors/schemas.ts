@@ -15,6 +15,7 @@ export const ActorSchema = Schema.Struct({
 });
 
 export const NullableActorSchema = Schema.NullOr(ActorSchema);
+export const UndefinableActorSchema = Schema.UndefinedOr(ActorSchema);
 
 export const ListActorsSchema = Schema.Array(ActorSchema);
 

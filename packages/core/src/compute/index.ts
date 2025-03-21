@@ -11,7 +11,7 @@ export class ComputeUnit extends Effect.Service<ComputeUnit>()("@p0/core/compute
     const queue = (task: ComputeTask) =>
       Effect.gen(function* () {
         yield* SubscriptionRef.update(status, (s) => ComputeStatus.Initializing());
-        const _task = yield* cm.queue_up(task);
+        const _task = yield* cm.queue_up_task(task);
         yield* SubscriptionRef.update(status, (s) => ComputeStatus.Initialized());
         return _task;
       });
@@ -24,6 +24,7 @@ export class ComputeUnit extends Effect.Service<ComputeUnit>()("@p0/core/compute
 export const ComputeUnitLive = ComputeUnit.Default;
 
 export const create = (payload: ComputeTask): ComputeTask => ({
+  type: "task",
   id: payload.id,
   config: payload.config ?? {},
   result: undefined,

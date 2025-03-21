@@ -8,7 +8,6 @@ const program = Effect.gen(function* (_) {
     code: "console.log('hello world')",
     language: "js",
     config: {
-      // os: "ubuntu-24.04.ext4",
       timeout: 10,
       persistent: false,
       drives: [],

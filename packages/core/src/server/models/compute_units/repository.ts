@@ -14,7 +14,6 @@ export class ComputeUnitRepository extends Effect.Service<ComputeUnitRepository>
 
     const register_task = (task: ComputeTask) =>
       Effect.gen(function* (_) {
-        // check if the task already exists
         const exists_in_queue = yield* cm.has_task(task.id);
         if (exists_in_queue) {
           return yield* Effect.fail(new ComputeUnitTaskAlreadyExists());
@@ -24,7 +23,6 @@ export class ComputeUnitRepository extends Effect.Service<ComputeUnitRepository>
 
     const register_binary = (binary: ComputeBinary) =>
       Effect.gen(function* (_) {
-        // check if the task already exists
         const exists_in_queue = yield* cm.has_binary(binary.id);
         if (exists_in_queue) {
           return yield* Effect.fail(new ComputeUnitBinaryAlreadyExists());

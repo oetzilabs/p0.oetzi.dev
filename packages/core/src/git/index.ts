@@ -1,10 +1,9 @@
-import { Effect, pipe, Stream } from "effect";
-import type { Git } from "./schema";
 import { Command, FileSystem, Path } from "@effect/platform";
+import { BunFileSystem } from "@effect/platform-bun";
+import { Config, Effect, pipe, Stream } from "effect";
 import { BaseLoggerService } from "../logger";
 import { GitCantUseBothBranchAndCommit, GitProjectDoesNotExist, InvalidGitUrl } from "./errors";
-import { env } from "bun";
-import { BunFileSystem } from "@effect/platform-bun";
+import type { Git } from "./schema";
 
 export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo", {
   effect: Effect.gen(function* (_) {
@@ -13,10 +12,10 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
     const cwd = process.cwd();
     const path = yield* _(Path.Path);
     const fs = yield* _(FileSystem.FileSystem);
+    const HOME = yield* Config.string("HOME").pipe(Config.withDefault("/tmp"));
 
     const get_safe_local_path = (hostname: string, repo_org_user_pathname: string) => {
-      const homeDir = env.HOME || env.USERPROFILE || "/tmp"; // Fallback to /tmp
-      const baseDir = path.join(homeDir, ".p0", "projects", hostname); // Consistent base directory
+      const baseDir = path.join(HOME, ".p0", "projects", hostname);
       const projectDir = path.join(baseDir, repo_org_user_pathname);
       return projectDir;
     };
@@ -75,26 +74,22 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
         const { repository, branch, commit, environment } = git;
         const env = environment ?? {};
         const entity_folder = git.repository.pathname.slice(1).split("/")[0];
+        if (!entity_folder) {
+          return yield* Effect.fail(
+            new InvalidGitUrl({ repository: git.repository.toString(), must_start_with: "github.com/" })
+          );
+        }
         const repo_name = git.repository.pathname.slice(1).split("/").slice(-1)[0];
         const local_entity_folder_path = get_safe_local_path(git.repository.hostname, entity_folder);
         const repo_local_path = get_safe_local_path(git.repository.hostname, git.repository.pathname.slice(1));
-        // yield* logger.info("git#clone", "local_entity_folder_path", local_entity_folder_path);
-        // yield* logger.info("git#clone", "repo_local_path", repo_local_path);
 
-        const fs = yield* _(FileSystem.FileSystem);
-        const path = yield* _(Path.Path);
-
-        // Does the repo_local_path already exist?
         const repo_exists = yield* fs.exists(repo_local_path);
         if (repo_exists) {
           return repo_local_path;
         }
 
-        // Ensure the safe storage directory exists
         yield* fs.makeDirectory(repo_local_path, { recursive: true });
-        // yield* logger.info("git#clone", "safeStoragePath", repo_local_path);
 
-        // Clone the repository into the safe storage path
         const _process = yield* simple_process(
           `clone ${repository.toString()} ${repo_name}`,
           env,
@@ -119,7 +114,7 @@ export class GitService extends Effect.Service<GitService>()("@p0/core/git/repo"
         }
 
         yield* logger.info("git#clone", "pid", _process.pid);
-        return repo_local_path; // Return the safe storage path
+        return repo_local_path;
       });
 
     const pull = (git: Git) =>

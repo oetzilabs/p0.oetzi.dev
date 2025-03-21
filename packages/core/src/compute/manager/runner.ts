@@ -1,10 +1,8 @@
-import { Effect, pipe, Stream } from "effect";
-import { type ComputeBinary, type ComputeTask } from "../schemas";
-import { BaseLoggerService } from "../../logger";
-import { Command, FetchHttpClient, FileSystem, HttpClient, HttpClientRequest, Path, Worker } from "@effect/platform";
-import { ComputeWorkerPool, ComputeWorkerPoolLive } from "./pool"; // Import worker pool
+import { Command, FetchHttpClient, FileSystem, HttpClient, Path } from "@effect/platform";
+import { Config, Effect, pipe, Stream } from "effect";
 import { ComputeBinaryNotDownloaded } from "../errors";
-import { env } from "bun";
+import { type ComputeBinary, type ComputeTask } from "../schemas";
+import { ComputeWorkerPool, ComputeWorkerPoolLive } from "./pool";
 
 export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/compute/runner", {
   effect: Effect.gen(function* (_) {
@@ -12,14 +10,15 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
     const path = yield* _(Path.Path);
     const fs = yield* _(FileSystem.FileSystem);
 
+    const HOME_DIR = yield* Config.string("HOME").pipe(Config.withDefault("/tmp"));
+
     const execute_task = (task: ComputeTask) => workerPool.execute(task.config);
 
     const get_safe_local_path = (binary: ComputeBinary) =>
       Effect.gen(function* (_) {
-        const homeDir = env.HOME || env.USERPROFILE || "/tmp"; // Fallback to /tmp
-        const baseDir = path.join(homeDir, ".p0", "binaries"); // Consistent base directory
+        const baseDir = path.join(HOME_DIR, ".p0", "binaries");
         const projectDir = path.join(baseDir, binary.id);
-        // make the directory if it doesn't exist
+
         const exists = yield* fs.exists(projectDir);
         if (!exists) {
           yield* fs.makeDirectory(projectDir, { recursive: true });
@@ -33,7 +32,6 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
         if (!local_path) {
           const is_file_protocol = binary.download_url.startsWith("file://");
           if (!is_file_protocol) {
-            // download the binary
             const fetcher = HttpClient.get(binary.download_url, { headers: { "User-Agent": "@p0/user-agent" } }).pipe(
               Effect.catchTags({
                 RequestError: (e) =>
@@ -59,11 +57,10 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
               );
             }
             const buffer = yield* response.arrayBuffer.pipe(Effect.map((ab) => Buffer.from(ab)));
-            // convert the buffer to a file
+
             const safe_local_path = yield* get_safe_local_path(binary);
             const file_path = path.join(safe_local_path, `${binary.id}.bin`);
 
-            // safe the buffer to the file
             yield* Effect.try(() => fs.writeFile(file_path, buffer));
             return file_path;
           }
@@ -74,14 +71,12 @@ export class ComputeRunner extends Effect.Service<ComputeRunner>()("@p0/core/com
 
     const execute_binary = (binary: ComputeBinary) =>
       pipe(
-        // Start running the command and return a handle to the running process
         Command.start(
           Command.make(binary.local_path!, ...(binary.config.args ?? [])).pipe(
             Command.env(binary.config.environment ?? {})
           )
         ),
         Effect.flatMap((_process) => {
-          // Capture the stream and update the state
           return Effect.gen(function* () {
             const stdoutStream = _process.stdout.pipe(Stream.decodeText("utf8"));
             const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));

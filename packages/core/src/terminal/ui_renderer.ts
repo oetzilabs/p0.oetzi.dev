@@ -12,32 +12,16 @@ const defaultLayoutConfig: LayoutConfig = {
   errorWidthPercent: 20,
 };
 
-/**
- * Calculates the width of a panel based on a percentage of the total width.
- *
- * @param totalWidth - The total width of the terminal.
- * @param percentage - The percentage of the total width to use for the panel.
- * @returns The calculated width of the panel.
- */
 const calculatePanelWidth = (totalWidth: number, percentage: number): number => {
   return Math.floor((percentage / 100) * totalWidth);
 };
 
-/**
- * Builds the content for the sidebar based on the application state.
- *
- * @param state - The application state.
- * @returns The sidebar content as a string.
- */
 const buildSidebarContent = (state: AppState, maxLength: number = process.stdout.columns - 2): string => {
-  // split by projects and processes
   if (Option.isNone(state.selectedProcessId)) {
     const projects = state.projects.map((p) => p.name).join("\n");
     const processes = state.processes.map((p) => p.name).join("\n");
-    // return projects and processes joined by a border
     return `Projects:\n${projects}\n${createBorder(maxLength)}\nProcesses:\n${processes}`;
   } else {
-    // return projects and processes joined by a border, but highlight the selected process/project with a star
     const sPid = state.selectedProcessId.value;
 
     const highlight_process = (name: string, pid: number) => {
@@ -51,26 +35,9 @@ const buildSidebarContent = (state: AppState, maxLength: number = process.stdout
     const processes = state.processes.map((p) => highlight_process(p.name, p.id)).join("\n");
 
     return `Projects:\n${projects}\n${createBorder(maxLength)}\nProcesses:\n${processes}\n`;
-
-    // return wrapTextToMaxLength(
-    //   state.projects
-    //     .map((pj) => {
-    //       const process = state.processes.find((p) => p.name === pj.name);
-    //       if (!process) return pj.name;
-    //       return getProcessName(process, state.selectedProcessId);
-    //     })
-    //     .join("\n"),
-    //   maxLength
-    // );
   }
 };
 
-/**
- * Builds the content for the output panel based on the application state.
- *
- * @param state - The application state.
- * @returns The output content as a string.
- */
 const buildOutputContent = (state: AppState, maxLength = process.stdout.columns - 2): string => {
   if (state.processes.length === 0) {
     return "No processes running.";
@@ -83,7 +50,7 @@ const buildOutputContent = (state: AppState, maxLength = process.stdout.columns 
         return `PID: none\n${wrapTextToMaxLength(process.output, maxLength)}`;
       }
     }
-    return "No processes running."; // Or some other default message
+    return "No processes running.";
   } else {
     const selectedProcessId = state.selectedProcessId.value;
     const process = state.processes.find((p) => p.id === selectedProcessId);
@@ -95,19 +62,10 @@ const buildOutputContent = (state: AppState, maxLength = process.stdout.columns 
   }
 };
 
-/**
- * Wraps the text into multiple lines based on a specified maximum line length.
- *
- * @param text - The text to wrap into multiple lines.
- * @param maxLineLength - The maximum number of characters per line.
- * @returns The wrapped text with new lines.
- */
 const wrapTextToMaxLength = (text: string, maxLineLength: number): string => {
   const lines: string[] = [];
 
-  // Split the text by lines first
   text.split("\n").forEach((line) => {
-    // Split each line into chunks of maxLineLength
     for (let i = 0; i < line.length; i += maxLineLength) {
       lines.push(line.slice(i, i + maxLineLength));
     }
@@ -116,12 +74,6 @@ const wrapTextToMaxLength = (text: string, maxLineLength: number): string => {
   return lines.join("\n");
 };
 
-/**
- * Builds the content for the errors panel based on the application state.
- *
- * @param state - The application state.
- * @returns The errors content as a string.
- */
 const buildErrorsContent = (state: AppState, maxLength = process.stdout.columns - 2): string => {
   return state.processes
     .map((p) => wrapTextToMaxLength(`[${p.id}]: ${p.errors}`, maxLength))
@@ -129,23 +81,10 @@ const buildErrorsContent = (state: AppState, maxLength = process.stdout.columns 
     .join("\n");
 };
 
-/**
- * Creates a horizontal border string.
- *
- * @param width - The width of the border.
- * @returns The border string.
- */
 const createBorder = (width: number): string => {
   return "━".repeat(width);
 };
 
-/**
- * Builds the layout string for the application UI.
- *
- * @param state - The application state.
- * @param config - The layout configuration.
- * @returns The layout string.
- */
 const buildLayoutString = (state: AppState, config: LayoutConfig = defaultLayoutConfig): string => {
   const totalWidth = process.stdout.columns;
   const terminalHeight = process.stdout.rows - 3;
@@ -184,7 +123,7 @@ const buildLayoutString = (state: AppState, config: LayoutConfig = defaultLayout
 
   const sidebarWidth = calculatePanelWidth(totalWidth, config.sidebarWidthPercent);
   const errorWidth = calculatePanelWidth(totalWidth, config.errorWidthPercent);
-  const outputWidth = totalWidth - (sidebarWidth + errorWidth + 4); // +4 for borders
+  const outputWidth = totalWidth - (sidebarWidth + errorWidth + 4);
 
   const sidebarContent = buildSidebarContent(state, sidebarWidth);
   const outputContent = buildOutputContent(state, outputWidth);

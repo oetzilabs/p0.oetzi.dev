@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 import { Authorization } from "../middlewares/authorization";
 import {
@@ -8,7 +8,12 @@ import {
   ActorNotDeleted,
   ActorNotFound,
 } from "../models/actors/errors";
-import { CreateActorSchema, ListActorsSchema, NullableActorSchema } from "../models/actors/schemas";
+import {
+  CreateActorSchema,
+  ListActorsSchema,
+  NullableActorSchema,
+  UndefinableActorSchema,
+} from "../models/actors/schemas";
 
 const ActorIdParam = HttpApiSchema.param("sid", Schema.String);
 

@@ -1,10 +1,9 @@
 import { Command, FetchHttpClient, FileSystem, HttpClient, HttpClientRequest, Path } from "@effect/platform";
-import { Chunk, Effect, pipe, Stream } from "effect";
+import { BunContext, BunFileSystem } from "@effect/platform-bun";
+import { Chunk, Config, Effect, pipe, Stream } from "effect";
+import type { LoggerCollection } from "../logger";
 import { DownloadNoUrlProvided } from "./errors";
 import type { FileDownload } from "./schemas";
-import { BunContext, BunFileSystem } from "@effect/platform-bun";
-import { env } from "bun";
-import type { LoggerCollection } from "../logger";
 
 export const streamToArray = <T>(stream: Stream.Stream<T>) =>
   Effect.gen(function* (_) {
@@ -21,13 +20,17 @@ export const fetch = (request: HttpClientRequest.HttpClientRequest) =>
 export const downloaded_file = (fd: FileDownload) =>
   Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
+    const force = fd.force ?? false;
 
-    if (fd.exists) return yield* Effect.succeed(fd);
+    if (fd.exists) {
+      if (force === false) {
+        return yield* Effect.succeed(fd);
+      }
+    }
     if (!fd.from) return yield* Effect.fail(DownloadNoUrlProvided);
 
-    // first check if the file already exists
     const exists = yield* fs.exists(fd.to);
-    if (exists) return yield* Effect.succeed(fd);
+    if (exists && !force) return yield* Effect.succeed(fd);
 
     yield* Effect.log(`Downloading ${fd.from} to ${fd.to}...`);
 
@@ -57,14 +60,13 @@ export const downloaded_file = (fd: FileDownload) =>
 export const get_safe_path = (filepath: string) =>
   Effect.gen(function* (_) {
     const path = yield* _(Path.Path);
-    // get home directory
-    const homeDir = env.HOME || env.USERPROFILE || "/tmp"; // Fallback to /tmp
+    const HOME = yield* Config.string("HOME").pipe(Config.withDefault("/tmp"));
 
     const is_absolute = path.isAbsolute(filepath);
     if (is_absolute) {
       return filepath;
     }
-    return path.join(homeDir, ".p0", "vms", filepath);
+    return path.join(HOME, ".p0", "vms", filepath);
   });
 
 export const run_command = (com: Command.Command, ignore_logging: boolean = false) =>
@@ -81,7 +83,6 @@ export const run_command = (com: Command.Command, ignore_logging: boolean = fals
             Effect.fork
           );
 
-          // Accumulate output from stderr
           yield* stderrStream.pipe(
             Stream.runForEach((line) => (ignore_logging ? Effect.void : Effect.logError(line))),
             Effect.fork
@@ -107,7 +108,6 @@ export const run_command_withLogger = (com: Command.Command, area: string, logge
             Effect.fork
           );
 
-          // Accumulate output from stderr
           yield* stderrStream.pipe(
             Stream.runForEach((line) => logger.error(area, line)),
             Effect.fork
@@ -118,3 +118,7 @@ export const run_command_withLogger = (com: Command.Command, area: string, logge
     );
     return _process;
   });
+
+export type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};

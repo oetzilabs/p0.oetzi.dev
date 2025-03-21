@@ -7,7 +7,6 @@ import type { ComputeBinary, ComputeTask } from "../../compute/schemas";
 export const compute_task_units = commonTable(
   "compute_task_units",
   {
-    // here will be parameters for the compute binary unit
     config: t.blob({ mode: "json" }).$type<ComputeTask["config"]>().notNull(),
   },
   "ctu"
@@ -16,7 +15,6 @@ export const compute_task_units = commonTable(
 export const compute_binary_units = commonTable(
   "compute_binary_units",
   {
-    // here will be parameters for the compute binary unit
     config: t.blob({ mode: "json" }).$type<ComputeBinary["config"]>().notNull(),
     download_url: t.text().notNull(),
     local_path: t.text(),

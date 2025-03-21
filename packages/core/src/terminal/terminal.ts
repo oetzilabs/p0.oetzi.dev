@@ -24,7 +24,6 @@ export class TerminalService extends Effect.Service<TerminalService>()("@p0/core
           .map((c) => c.charCodeAt(0).toString(16))
           .join("");
         if (key) {
-          // Run the handleInput effect and handle any potential errors
           Effect.runPromise(inputHandler.handleInput(as_hex, chunk));
         }
       });
@@ -74,7 +73,6 @@ export const TerminalProgram = <AppName extends string>(input: TerminalProgramIn
     const logger = base_logger.withGroup("terminal_program");
 
     const terminal = yield* _(TerminalService);
-    // const app_state = yield* _(AppStateService);
     const ui_renderer = yield* _(UIRendererService);
     const pm = yield* _(ProjectManagerService);
 

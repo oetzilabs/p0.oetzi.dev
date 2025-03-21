@@ -6,7 +6,6 @@ import type { InferOutput } from "valibot";
 export const actors = commonTable(
   "actors",
   {
-    // here will be parameters for the actors
     name: t.text().notNull().unique(),
   },
   "actor"

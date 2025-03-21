@@ -10,20 +10,17 @@
     "bun-types": "latest",
     "drizzle-kit": "^0.30.4"
   },
-  "peerDependencies": {
-    "typescript": "5.7.3"
-  },
   "dependencies": {
-    "@effect/experimental": "^0.41.6",
-    "@effect/platform": "^0.77.6",
-    "@effect/platform-bun": "^0.57.6",
-    "@effect/sql-drizzle": "^0.29.6",
-    "@libsql/client": "^0.14.0",
+    "@effect/experimental": "0.44.1",
+    "@effect/platform": "0.80.1",
+    "@effect/platform-bun": "0.60.1",
+    "@effect/sql-drizzle": "0.32.1",
+    "@libsql/client": "0.15.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "dotenv": "^16.4.7",
-    "drizzle-orm": "^0.40.0",
+    "drizzle-orm": "0.40.1",
     "drizzle-valibot": "^0.4.0",
-    "effect": "3.13.6",
-    "valibot": "^1.0.0-rc.3"
+    "effect": "3.14.1",
+    "valibot": "1.0.0"
   }
 }

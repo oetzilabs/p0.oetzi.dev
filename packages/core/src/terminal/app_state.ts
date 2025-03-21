@@ -192,10 +192,7 @@ export class AppStateService extends Effect.Service<AppStateService>()("@p0/core
         })
       );
 
-    // const log_changes = state.changes.pipe(Stream.changes).pipe(Stream.map((s) => JSON.stringify(s)));
-
     return {
-      // state,
       getState,
       setState,
       updateState,

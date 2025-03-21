@@ -7,11 +7,14 @@ import { Console, Effect, Layer, Logger, Match, Schema } from "effect";
 
 const $launcher = (...args: Parameters<typeof TerminalProgram>) =>
   BunRuntime.runMain(
-    Effect.scoped(TerminalProgram(...args)).pipe(
-      Effect.provide(GitLive),
-      Effect.provide(AppStateLive),
-      Effect.provide(BaseLoggerLive),
-      Effect.provide(BunContext.layer),
+    Effect.scoped(
+      TerminalProgram(...args).pipe(
+        Effect.provide(GitLive),
+        Effect.provide(AppStateLive),
+        Effect.provide(BaseLoggerLive),
+        Effect.provide(BunContext.layer)
+      )
+    ).pipe(
       Effect.provide(Logger.replaceScoped(Logger.defaultLogger, json_logger).pipe(Layer.provide(BunFileSystem.layer)))
     )
   );
@@ -76,7 +79,6 @@ export const $internal_launcher = () =>
         const matcher = Match.value({ args }).pipe(
           Match.when({ args: (a) => a.some((x) => subcommands.help!.keys.includes(x)) }, () =>
             Effect.gen(function* () {
-              // TODO: implement help
               yield* Console.log(help_text(subcommands));
               return yield* Effect.void;
             })
@@ -89,7 +91,6 @@ export const $internal_launcher = () =>
           ),
           Match.orElse(() =>
             Effect.gen(function* (_) {
-              // check if there is a p0.config.ts file in the current directory where the user is running the command
               const config_file_exists = yield* fs.exists(path.join(cwd, "p0.config.ts"));
               if (!config_file_exists) {
                 return yield* Effect.fail(P0ConfigNotFound);

@@ -11,9 +11,7 @@ import { CreateSessionSchema, ListSessionsSchema, NullableSessionSchema } from "
 import { Authorization } from "../middlewares/authorization";
 
 export const BearerApiSecurity = HttpApiSecurity.apiKey({
-  // Specify that the API key is stored in a cookie
   in: "cookie",
-  // Define the cookie name,
   key: "bearer_token",
 });
 
@@ -25,6 +23,7 @@ export const SessionGroup = HttpApiGroup.make("Session")
   .add(
     HttpApiEndpoint.get("listAllSessions")`/all`
       .addError(UnknownException, { status: 500 })
+      .addError(SessionNotFound, { status: 404 })
       .addSuccess(
         ListSessionsSchema.pipe(
           HttpApiSchema.withEncoding({

@@ -6,7 +6,6 @@ import type { InferOutput } from "valibot";
 export const brokers = commonTable(
   "brokers",
   {
-    // here will be parameters for the broker
     url: t.text().notNull(),
   },
   "brk"

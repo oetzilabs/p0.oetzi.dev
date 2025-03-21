@@ -6,7 +6,6 @@ import type { InferOutput } from "valibot";
 export const load_balancers = commonTable(
   "load_balancers",
   {
-    // here will be parameters for the broker
     url: t.text().notNull(),
   },
   "lb"
