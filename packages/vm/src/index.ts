@@ -24,7 +24,7 @@ const makeDispatcher = (host: string, socketPath: string) =>
     },
   });
 
-type SocketCurlRequest = {
+type SocketRequest = {
   firecrackerSocketPath: string;
   method: string;
   url: string;
@@ -415,7 +415,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         // first boot-source
         yield* logger.info("createFirecrackerVM", "boot-source", JSON.stringify(config.boot_source));
-        yield* socket_curl_request({
+        yield* socket_request({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
           url: `${FIRECRACKER_URL}/boot-source`,
@@ -427,7 +427,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         // then drives
         yield* logger.info("createFirecrackerVM", "drives", JSON.stringify(config.drives));
         for (const drive of config.drives) {
-          yield* socket_curl_request({
+          yield* socket_request({
             firecrackerSocketPath: vmSocketPath,
             method: "PUT",
             url: `${FIRECRACKER_URL}/drives/${drive.drive_id}`,
@@ -453,7 +453,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         // then machine-config
         yield* logger.info("createFirecrackerVM", "machine-config", JSON.stringify(config.machine_config));
-        yield* socket_curl_request({
+        yield* socket_request({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
           url: `${FIRECRACKER_URL}/machine-config`,
@@ -462,7 +462,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("createFirecrackerVM", "machine-config has been set");
         yield* Effect.sleep(waitingTimeBetweenCommands);
 
-        yield* socket_curl_request({
+        yield* socket_request({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
@@ -477,7 +477,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         return config.vmId;
       });
 
-    const socket_curl_request = (scr: SocketCurlRequest) =>
+    const socket_request = (scr: SocketRequest) =>
       Effect.gen(function* (_) {
         const dialer = modem_dialer({ socketPath: scr.firecrackerSocketPath });
         return yield* dialer({
@@ -515,7 +515,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         const vmSocketPath = yield* get_safe_path(`/tmp/firecracker-${vmId.toString()}.sock`);
 
         // unix-socket send action
-        const response = yield* socket_curl_request({
+        const response = yield* socket_request({
           firecrackerSocketPath: vmSocketPath,
           method: "PUT",
           url: `${FIRECRACKER_URL}/actions`,
