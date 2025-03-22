@@ -210,7 +210,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       if (!dl_folder_exists) {
         yield* fs.makeDirectory(dl_folder, { recursive: true });
       }
-      const destination = path.join(STARTING_DIRECTORY, "filesystem-collection", filename);
+      const destination = path.join(dl_folder, filename);
       const jailedDestination = path.join(
         "filesystem-collection",
         filename.replace(".upstream", "").replace(".squashfs", ".ext4")
@@ -349,7 +349,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       }
 
       return {
-        destination: path.join(STARTING_DIRECTORY, path.basename(dl).replace(".squashfs", ".ext4")),
+        destination: path.join(dl_folder, path.basename(dl).replace(".squashfs", ".ext4")),
         jailedDestination: `./${jailedDestination}`,
       };
     });
