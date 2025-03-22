@@ -56,6 +56,7 @@ export const RunSchema = Schema.Struct({
     network_interfaces: Schema.optional(Schema.mutable(Schema.Array(NetworkInterfaceSchema))),
     dependencies: Schema.optional(Schema.Array(Schema.String)),
     drives: Schema.optional(Schema.mutable(Schema.Array(DriveSchema))),
+    jailed: Schema.optional(Schema.Boolean),
     resources: Schema.optional(
       Schema.Struct({
         cpu: Schema.Number,
