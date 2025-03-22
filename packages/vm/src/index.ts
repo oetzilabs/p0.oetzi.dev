@@ -586,6 +586,66 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           body: { action_type: "SendCtrlAltDel" },
           firecrackerSocketPath: vmSocketPath,
         });
+        if (config.jailed) {
+          const firecrackerJailedFolder = `firecracker-${FIRECRACKER_VERSION}-${arch}`;
+          const rootfsDestinationFolder = path.join(
+            STARTING_DIRECTORY,
+            "jailer",
+            firecrackerJailedFolder,
+            config.vmId,
+            "root",
+            path.dirname(ROOTFS_BINARY.jailedDestination)
+          );
+          // unmount the rootfs
+          const unmountRootFSCommand = Command.make("umount", "-l", rootfsDestinationFolder).pipe(env);
+          const unmountRootFSProcess = yield* run_command(unmountRootFSCommand, "unmountRootFSCommand");
+          const unmountRootFSExitCode = yield* unmountRootFSProcess.exitCode;
+          if (unmountRootFSExitCode !== 0) {
+            return yield* Effect.fail(
+              FireCrackerFailedToStartVM.make({
+                vmId: config.vmId,
+                message: "Failed to unmount rootfs",
+              })
+            );
+          }
+          const vmLinuxDestinationFolder = path.join(
+            STARTING_DIRECTORY,
+            "jailer",
+            firecrackerJailedFolder,
+            config.vmId,
+            "root",
+            path.dirname(VM_LINUX_BINARY.jailedDestination)
+          );
+          // unmount the vmlinux
+          const unmountVMLinuxCommand = Command.make("umount", "-l", vmLinuxDestinationFolder).pipe(env);
+          const unmountVMLinuxProcess = yield* run_command(unmountVMLinuxCommand, "unmountVMLinuxCommand");
+          const unmountVMLinuxExitCode = yield* unmountVMLinuxProcess.exitCode;
+          if (unmountVMLinuxExitCode !== 0) {
+            return yield* Effect.fail(
+              FireCrackerFailedToStartVM.make({
+                vmId: config.vmId,
+                message: "Failed to unmount vmlinux",
+              })
+            );
+          }
+
+          // remove the vmId folder
+          const jailedVmIdFolder = path.join(STARTING_DIRECTORY, "jailer", firecrackerJailedFolder, config.vmId);
+          const removeJailedVmIdFolderCommand = Command.make("rm", "-rf", jailedVmIdFolder).pipe(env);
+          const removeJailedVmIdFolderProcess = yield* run_command(
+            removeJailedVmIdFolderCommand,
+            "removeJailedVmIdFolderCommand"
+          );
+          const removeJailedVmIdFolderExitCode = yield* removeJailedVmIdFolderProcess.exitCode;
+          if (removeJailedVmIdFolderExitCode !== 0) {
+            return yield* Effect.fail(
+              FireCrackerFailedToStartVM.make({
+                vmId: config.vmId,
+                message: `Failed to remove jailed vmId folder ${jailedVmIdFolder}`,
+              })
+            );
+          }
+        }
 
         return response;
       });
