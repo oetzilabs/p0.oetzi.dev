@@ -7,6 +7,7 @@ import { Config, Duration, Effect, pipe, Ref, Stream } from "effect";
 import {
   FireCrackerDownloadFailed,
   FireCrackerFailedToBoot,
+  FireCrackerFailedToStartVM,
   FirecrackerJailerFailed,
   FireCrackerVmNotCreated,
 } from "./errors";
@@ -52,6 +53,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const PATH = PathConfig.split(separator)
       .filter((p) => !p.includes(" "))
       .join(separator);
+    const JAILED = yield* Config.boolean("JAILED").pipe(Config.withDefault(false));
 
     const env = Command.env({
       PATH,
@@ -69,14 +71,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       return version;
     };
 
-    const socketGen = (vmId: VmId, version: number = 1) => {
-      switch (version) {
-        case 1:
+    const socketGen = (vmId: VmId, jailed: boolean) => {
+      switch (jailed) {
+        case false:
           return `/tmp/firecracker-${vmId}.socket`;
-        case 2:
+        case true:
           return `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
-        default:
-          return `/tmp/firecracker-${vmId}.socket`;
       }
     };
 
@@ -116,10 +116,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       `https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/${version}/${arch}/ubuntu-${UBUNTU_VERSIONS[version]}.squashfs`;
 
     const DEFAULT_VM_CONFIG_OPTIONS: {
+      jailed: boolean;
       linux: string;
       resources: { cpu: number; memory: number };
       network_interfaces: NetworkInterface[];
     } = {
+      jailed: false,
       linux: "6.1.102",
       resources: {
         cpu: 1,
@@ -133,7 +135,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const FIRECRACKER_LINUX_VERSION = yield* Config.string("FIRECRACKER_LINUX_VERSION").pipe(
       Config.withDefault("6.1.102")
     );
-    const FIRECRACKER_URL = "";
     const FIRECRACKER_VERSION = yield* Config.string("FIRECRACKER_VERSION").pipe(
       Config.withDefault("v1.11"),
       Config.validate({
@@ -414,14 +415,52 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const settingUpFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = socketGen(config.vmId, 1);
+        const vmSocketPath = socketGen(config.vmId, config.jailed);
         yield* logger.info("createFirecrackerVM", "vmSocketPath", vmSocketPath);
         yield* logger.info("createFirecrackerVM", "FIRECRACKER_BINARY", FIRECRACKER_BINARY);
-        const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
+        if (!JAILED) {
+          const firecrackerCommand = Command.make(FIRECRACKER_BINARY, "--api-sock", vmSocketPath).pipe(env);
 
-        yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
+          yield* run_command(firecrackerCommand, "createFirecrackerVM").pipe(Effect.fork);
 
-        yield* Effect.sleep(Duration.millis(100));
+          yield* Effect.sleep(Duration.millis(100));
+        } else {
+          // mount the rootfs and the vmlinux
+          const bindMountVMlinuxCommand = Command.make(
+            "mount",
+            "--bind",
+            VM_LINUX_BINARY,
+            path.join(STARTING_DIRECTORY, "jailer", "vmlinux-collection")
+          ).pipe(env);
+          const bindMountVMlinuxProcess = yield* run_command(bindMountVMlinuxCommand, "bindMountCommand");
+
+          const vmLinuxMountExitCode = yield* bindMountVMlinuxProcess.exitCode;
+          if (vmLinuxMountExitCode !== 0) {
+            return yield* Effect.fail(
+              FireCrackerFailedToStartVM.make({
+                vmId: config.vmId,
+                message: "Failed to mount vmlinux",
+              })
+            );
+          }
+
+          const bindMountRootFSCommand = Command.make(
+            "mount",
+            "--bind",
+            ROOTFS_BINARY,
+            path.join(STARTING_DIRECTORY, "jailer", "filesystem-collection")
+          ).pipe(env);
+          const bindMountRootFSProcess = yield* run_command(bindMountRootFSCommand, "bindMountCommand2");
+          const rootFSMountExitCode = yield* bindMountRootFSProcess.exitCode;
+          if (rootFSMountExitCode !== 0) {
+            return yield* Effect.fail(
+              FireCrackerFailedToStartVM.make({
+                vmId: config.vmId,
+                message: "Failed to mount rootfs",
+              })
+            );
+          }
+        }
 
         const vmSocketPathExists = yield* fs.exists(vmSocketPath);
         if (!vmSocketPathExists) {
@@ -442,8 +481,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           return map;
         });
 
-        // const waitingTimeBetweenCommands = Duration.millis(500);
-
         yield* logger.info("createFirecrackerVM", "boot-source", config.boot_source);
         yield* socketRequest({
           firecrackerSocketPath: vmSocketPath,
@@ -452,7 +489,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           body: config.boot_source,
         });
         yield* logger.info("createFirecrackerVM", "boot-source has been set");
-        // yield* Effect.sleep(waitingTimeBetweenCommands);
 
         yield* logger.info("createFirecrackerVM", "drives", config.drives);
         for (const drive of config.drives) {
@@ -464,7 +500,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           });
         }
         yield* logger.info("createFirecrackerVM", "drives have been set");
-        // yield* Effect.sleep(waitingTimeBetweenCommands);
 
         // yield* logger.info("createFirecrackerVM", "network-interfaces", JSON.stringify(config.network_interfaces));
         // const networkInterfacesResponse = yield* socket_fetch(
@@ -487,7 +522,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           body: config.machine_config,
         });
         yield* logger.info("createFirecrackerVM", "machine-config has been set");
-        // yield* Effect.sleep(waitingTimeBetweenCommands);
 
         return config.vmId;
       });
@@ -510,10 +544,10 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         });
       });
 
-    const startFirecrackerVM = (vmId: VmId) =>
+    const startFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
         const response = yield* socketRequest({
-          firecrackerSocketPath: socketGen(vmId, 1),
+          firecrackerSocketPath: socketGen(config.vmId, config.jailed),
           method: "PUT",
           url: `/actions`,
           body: {
@@ -537,6 +571,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
         return VmConfigSchema.make({
           vmId: VmId.make(cuid2()),
+          jailed: JAILED,
           boot_source: {
             kernel_image_path: VM_LINUX_BINARY,
             boot_args: "console=ttyS0 noapic reboot=k panic=1 pci=off nomodules",
@@ -558,12 +593,12 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         });
       });
 
-    const destroyFirecrackerVM = (vmId: VmId) =>
+    const destroyFirecrackerVM = (config: VmConfig) =>
       Effect.gen(function* (_) {
-        const vmSocketPath = socketGen(vmId, 1);
+        const vmSocketPath = socketGen(config.vmId, config.jailed);
         const response = yield* socketRequest({
           method: "PUT",
-          url: `${FIRECRACKER_URL}/actions`,
+          url: `/actions`,
           body: { action_type: "SendCtrlAltDel" },
           firecrackerSocketPath: vmSocketPath,
         });
@@ -604,33 +639,30 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         yield* logger.info("run", "creating vm configuration");
         const vmConfig = yield* createVmConfiguration(mergedConfig);
 
-        // yield* jailer
-        //   .jail({
-        //     jailerBinaryPath: JAILER_BINARY,
-        //     firecrackerBinaryPath: FIRECRACKER_BINARY,
-        //     vmId: vmConfig.vmId,
-        //     root: path.join(STARTING_DIRECTORY, "jailer"),
-        //   })
-        //   .pipe(Effect.fork);
+        if (vmConfig.jailed) {
+          yield* jailer
+            .jail({
+              jailerBinaryPath: JAILER_BINARY,
+              firecrackerBinaryPath: FIRECRACKER_BINARY,
+              vmId: vmConfig.vmId,
+              root: path.join(STARTING_DIRECTORY, "jailer"),
+            })
+            .pipe(Effect.fork);
+        }
 
         yield* logger.info("run", "jailed vm", vmConfig.vmId);
 
-        yield* Effect.sleep(Duration.millis(100));
-
-        yield* logger.info("run", "creating firecracker setup");
+        yield* logger.info("run", `${vmConfig.jailed ? "jailed" : "not jailed"} vm`, vmConfig.vmId);
         const firecracker_vm = yield* settingUpFirecrackerVM(vmConfig);
 
-        yield* logger.info("run", "starting firecracker vm");
-        yield* startFirecrackerVM(firecracker_vm);
-
-        yield* logger.info("run", "jailing");
-        // TODO: Check if the VM is already jailed
+        yield* logger.info("run", `starting ${vmConfig.jailed ? "jailed" : "not jailed"} firecracker vm`);
+        yield* startFirecrackerVM(vmConfig);
 
         // const executionResult = yield* executeCodeInVM(vmId, language, config.timeout || 10);
 
         if (!mergedConfig.persistent) {
           yield* logger.info("run", "destroying firecracker vm");
-          yield* destroyFirecrackerVM(firecracker_vm);
+          yield* destroyFirecrackerVM(vmConfig);
         }
 
         // return executionResult;

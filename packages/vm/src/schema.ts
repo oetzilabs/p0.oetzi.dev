@@ -37,6 +37,7 @@ export type VmId = typeof VmId.Type;
 
 export const VmConfigSchema = Schema.Struct({
   vmId: VmId,
+  jailed: Schema.Boolean,
   boot_source: BootSourceSchema,
   drives: Schema.mutable(Schema.Array(DriveSchema)),
   network_interfaces: Schema.mutable(Schema.Array(NetworkInterfaceSchema)),
