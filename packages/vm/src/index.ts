@@ -205,12 +205,18 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       const dl = DOWNLOAD_LINK(dl_arch, FIRECRACKER_MAIN_VERSION);
 
       const filename = path.basename(`${dl}.upstream`);
-      const dl_folder = path.join(STARTING_DIRECTORY, "filesystem-collection");
-      const dl_folder_exists = yield* fs.exists(dl_folder);
-      if (!dl_folder_exists) {
-        yield* fs.makeDirectory(dl_folder, { recursive: true });
+      const fsDownloadsFolder = path.join(STARTING_DIRECTORY, "filesystem-downloads");
+      const fsCollectionFolder = path.join(STARTING_DIRECTORY, "filesystem-collection");
+      const ext4File = path.join(fsCollectionFolder, path.basename(dl).replace(".squashfs", ".ext4"));
+      const dlCollectionExists = yield* fs.exists(fsDownloadsFolder);
+      if (!dlCollectionExists) {
+        yield* fs.makeDirectory(fsCollectionFolder, { recursive: true });
       }
-      const destination = path.join(dl_folder, filename);
+      const dl_folder_exists = yield* fs.exists(fsDownloadsFolder);
+      if (!dl_folder_exists) {
+        yield* fs.makeDirectory(fsDownloadsFolder, { recursive: true });
+      }
+      const destination = path.join(fsDownloadsFolder, filename);
       const jailedDestination = path.join(
         "filesystem-collection",
         filename.replace(".upstream", "").replace(".squashfs", ".ext4")
@@ -314,7 +320,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           "truncate",
           "-s",
           "400M",
-          path.basename(dl).replace(".squashfs", ".ext4")
+          path.join(fsCollectionFolder, path.basename(dl).replace(".squashfs", ".ext4"))
         ).pipe(Command.workingDirectory(STARTING_DIRECTORY), env);
 
         const truncate_process = yield* run_command(truncate_com, "downloadRootfs");
@@ -333,7 +339,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
           "-d",
           path.join(STARTING_DIRECTORY, unsquashed_folder),
           "-F",
-          path.basename(dl).replace(".squashfs", ".ext4")
+          ext4File
         ).pipe(Command.workingDirectory(STARTING_DIRECTORY), env);
 
         const mkfs_ext4_process = yield* run_command(mkfs_ext4_com, "downloadRootfs");
@@ -349,7 +355,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       }
 
       return {
-        destination: path.join(dl_folder, path.basename(dl).replace(".squashfs", ".ext4")),
+        destination: ext4File,
         jailedDestination: `./${jailedDestination}`,
       };
     });
