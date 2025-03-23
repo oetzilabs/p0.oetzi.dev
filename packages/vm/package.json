@@ -6,21 +6,18 @@
     "./src/index.ts"
   ],
   "devDependencies": {
-    "@effect/language-service": "^0.2.0",
-    "@effect/vitest": "^0.18.1",
+    "@effect/language-service": "^0.4.0",
+    "@effect/vitest": "^0.20.1",
     "@types/bun": "latest",
-    "vitest": "^3.0.5"
+    "vitest": "^3.0.9"
   },
   "scripts": {
     "test": "vitest"
   },
-  "peerDependencies": {
-    "typescript": "5.7.3"
-  },
   "dependencies": {
-    "@effect/experimental": "^0.41.6",
+    "@effect/experimental": "0.44.1",
     "@effect/platform": "^0.80.1",
-    "@effect/platform-bun": "0.60.1",
+    "@effect/platform-bun": "0.60.2",
     "effect": "3.14.1",
     "undici": "7.5.0"
   },
