@@ -1,10 +1,10 @@
 import { BunContext, BunFileSystem, BunRuntime } from "@effect/platform-bun";
-import { FirecrackerService, FirecrackerLive } from "./firecracker";
 import { Duration, Effect } from "effect";
+import { runner } from ".";
+import { FirecrackerLive } from "./firecracker";
 
 const program = Effect.gen(function* (_) {
-  const firecracker = yield* _(FirecrackerService);
-  const vmExectutionResult = yield* firecracker.run({
+  const x = yield* runner({
     zip: new File([], "test.zip"),
     environment: "nodejs22",
     config: {
@@ -15,8 +15,7 @@ const program = Effect.gen(function* (_) {
       },
     },
   });
-
-  return vmExectutionResult;
+  return x;
 }).pipe(Effect.provide(FirecrackerLive), Effect.provide(BunContext.layer), Effect.provide(BunFileSystem.layer));
 
 BunRuntime.runMain(Effect.scoped(program));

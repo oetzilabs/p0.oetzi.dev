@@ -32,7 +32,7 @@ export const downloaded_file = (fd: FileDownload) =>
     const exists = yield* fs.exists(fd.to);
     if (exists && !force) return yield* Effect.succeed(fd);
 
-    yield* Effect.log(`Downloading ${fd.from} to ${fd.to}...`);
+    // yield* Effect.log(`Downloading ${fd.from} to ${fd.to}...`);
 
     const request = HttpClientRequest.make("GET")(fd.from);
 
