@@ -46,24 +46,95 @@ export const VmConfigSchema = Schema.Struct({
 
 export type VmConfig = Schema.Schema.Type<typeof VmConfigSchema>;
 
-export const RunSchema = Schema.Struct({
-  code: Schema.String,
-  language: Schema.String,
-  config: Schema.Struct({
-    // os: Schema.Union(Schema.Literal("ubuntu-24.04.ext4")),
-    timeout: Schema.optional(Schema.Number),
-    persistent: Schema.optional(Schema.Boolean),
-    network_interfaces: Schema.optional(Schema.mutable(Schema.Array(NetworkInterfaceSchema))),
-    dependencies: Schema.optional(Schema.Array(Schema.String)),
-    drives: Schema.optional(Schema.mutable(Schema.Array(DriveSchema))),
-    jailed: Schema.optional(Schema.Boolean),
-    resources: Schema.optional(
-      Schema.Struct({
-        cpu: Schema.Number,
-        memory: Schema.Number,
-      })
-    ),
-  }),
+export const StorageSchema = Schema.Struct({});
+export type Storage = Schema.Schema.Type<typeof StorageSchema>;
+
+export const LoggingSchema = Schema.Struct({});
+export type Logging = Schema.Schema.Type<typeof LoggingSchema>;
+
+export const MonitoringSchema = Schema.Struct({});
+export type Monitoring = Schema.Schema.Type<typeof MonitoringSchema>;
+
+export const KeyValueSchema = Schema.Struct({});
+export type KeyValue = Schema.Schema.Type<typeof KeyValueSchema>;
+
+export const ModulesSchema = Schema.Struct({
+  network: Schema.optional(Schema.Union(Schema.Boolean, NetworkInterfaceSchema)),
+  storage: Schema.optional(Schema.Union(Schema.Boolean, StorageSchema)),
+  logging: Schema.optional(Schema.Union(Schema.Boolean, LoggingSchema)),
+  monitoring: Schema.optional(Schema.Union(Schema.Boolean, MonitoringSchema)),
+  kv: Schema.optional(Schema.Union(Schema.Boolean, KeyValueSchema)),
 });
 
+export const ResourceSchema = Schema.Struct({
+  cpu: Schema.Number,
+  memory: Schema.Number,
+});
+
+export const BaseConfigSchema = Schema.Struct({
+  type: Schema.optional(Schema.Literal("worker", "jailed_vm", "vm")),
+  timeout: Schema.optional(Schema.Duration),
+  persistent: Schema.optional(Schema.Boolean),
+  modules: Schema.optional(ModulesSchema),
+  resources: Schema.optional(ResourceSchema),
+});
+
+const ZipSchema = Schema.instanceOf(File);
+
+export const NodeJsRunSchema = Schema.Struct({
+  zip: ZipSchema,
+  environment: Schema.Literal("nodejs22", "nodejs20"), // ! we will not go beyond nodejs 20, LTS is important !
+  config: Schema.optional(
+    Schema.Struct({
+      ...BaseConfigSchema.fields,
+    })
+  ),
+});
+
+export const BunJsRunSchema = Schema.Struct({
+  zip: ZipSchema,
+  environment: Schema.Literal("bun"), // ! Always the latest version
+  config: Schema.optional(
+    Schema.Struct({
+      ...BaseConfigSchema.fields,
+    })
+  ),
+});
+
+export const GoRunSchema = Schema.Struct({
+  zip: ZipSchema,
+  environment: Schema.Literal("nodejs22", "nodejs20"),
+  config: Schema.optional(
+    Schema.Struct({
+      ...BaseConfigSchema.fields,
+    })
+  ),
+});
+
+export type NodeJsRun = Schema.Schema.Type<typeof NodeJsRunSchema>;
+export type BunJsRun = Schema.Schema.Type<typeof BunJsRunSchema>;
+
+export const RunSchema = Schema.Union(NodeJsRunSchema, BunJsRunSchema, GoRunSchema);
 export type Run = Schema.Schema.Type<typeof RunSchema>;
+
+const BaseVmExecutionResultSchema = Schema.Struct({
+  // config: VmConfigSchema,
+  duration: Schema.Number,
+});
+
+export const VmExecutionResultSchema = Schema.Union(
+  Schema.Struct({
+    ...BaseVmExecutionResultSchema.fields,
+    success: Schema.Literal(true),
+    data: Schema.Any,
+  }),
+  Schema.Struct({
+    ...BaseVmExecutionResultSchema.fields,
+    success: Schema.Literal(false),
+    errors: Schema.Array(Schema.String),
+  })
+);
+
+export type VmExecutionResult = Schema.Schema.Type<typeof VmExecutionResultSchema>;
+
+export const createVmExecutionResult = (data: VmExecutionResult): VmExecutionResult => data;
