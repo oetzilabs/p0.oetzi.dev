@@ -111,10 +111,21 @@ export const GoRunSchema = Schema.Struct({
   ),
 });
 
+export const UbuntuRunSchema = Schema.Struct({
+  zip: ZipSchema,
+  environment: Schema.Literal("ubuntu24", "ubuntu22"),
+  config: Schema.optional(
+    Schema.Struct({
+      ...BaseConfigSchema.fields,
+    })
+  ),
+});
+
 export type NodeJsRun = Schema.Schema.Type<typeof NodeJsRunSchema>;
 export type BunJsRun = Schema.Schema.Type<typeof BunJsRunSchema>;
+export type GoRun = Schema.Schema.Type<typeof GoRunSchema>;
 
-export const RunSchema = Schema.Union(NodeJsRunSchema, BunJsRunSchema, GoRunSchema);
+export const RunSchema = Schema.Union(NodeJsRunSchema, BunJsRunSchema, GoRunSchema, UbuntuRunSchema);
 export type Run = Schema.Schema.Type<typeof RunSchema>;
 
 const BaseVmExecutionResultSchema = Schema.Struct({
