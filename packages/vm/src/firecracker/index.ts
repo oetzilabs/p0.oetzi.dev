@@ -8,8 +8,9 @@ import {
   FireCrackerDownloadFailed,
   FireCrackerFailedToBoot,
   FireCrackerFailedToStartVM,
+  FirecrackerMissingKvm,
   FireCrackerVmNotCreated,
-} from "../errors";
+} from "./errors";
 import { JailerLive, JailerService } from "../jailer";
 import { HttpModemLive, HttpModemService, type ModemOptions } from "../modem";
 import {
@@ -20,7 +21,7 @@ import {
   type Drive,
   type Run,
   type VmConfig,
-} from "../schema";
+} from "./schema";
 
 type SocketRequest = {
   firecrackerSocketPath: string;
@@ -57,6 +58,28 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const env = Command.env({
       PATH,
     });
+
+    const checkForKvmOK = () =>
+      Effect.gen(function* (_) {
+        const _process = yield* run_command(Command.make("kvm-ok"), "checkForKvmOK").pipe(
+          Effect.catchTags({
+            BadArgument: () => Effect.fail(FirecrackerMissingKvm.make({ message: "Failed to check for kvm-ok" })),
+            SystemError: () => Effect.fail(FirecrackerMissingKvm.make({ message: "Failed to check for kvm-ok" })),
+          })
+        );
+        const exitCode = yield* _process.exitCode;
+        if (exitCode !== 0) {
+          return yield* Effect.fail(
+            FirecrackerMissingKvm.make({
+              message: `kvm-ok failed with exit code ${exitCode}`,
+            })
+          );
+        }
+        return yield* Effect.void;
+      });
+
+    yield* checkForKvmOK();
+
     yield* logger.info("composer", "Starting Firecracker composer");
 
     const getMainVersion = <V extends typeof FIRECRACKER_VERSION>(version: V) => {
@@ -668,7 +691,7 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
 
     const run = (run: Run) =>
       Effect.gen(function* (_) {
-        yield* logger.info("run", "starting run");
+        yield* logger.info("run", "starting firecracker run");
         const mergedConfig: NonNullable<Run["config"]> = {
           ...DEFAULT_VM_CONFIG_OPTIONS,
           ...run.config,

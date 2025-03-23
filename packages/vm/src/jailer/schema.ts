@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { VmId } from "../schema";
+import { VmId } from "../firecracker/schema";
 
 export const JailerConfigSchema = Schema.Struct({
   jailerBinaryPath: Schema.String,

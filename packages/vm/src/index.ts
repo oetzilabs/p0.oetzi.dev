@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import * as Firecracker from "./firecracker";
-import type { Run } from "./schema";
+import type { Run } from "./firecracker/schema";
 
 /*
 example:
