@@ -63,17 +63,13 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       Effect.gen(function* (_) {
         const _process = yield* run_command(Command.make("kvm-ok"), "checkForKvmOK").pipe(
           Effect.catchTags({
-            BadArgument: () => Effect.fail(FirecrackerMissingKvm.make({ message: "Failed to check for kvm-ok" })),
-            SystemError: () => Effect.fail(FirecrackerMissingKvm.make({ message: "Failed to check for kvm-ok" })),
+            BadArgument: () => Effect.fail(FirecrackerMissingKvm),
+            SystemError: () => Effect.fail(FirecrackerMissingKvm),
           })
         );
         const exitCode = yield* _process.exitCode;
         if (exitCode !== 0) {
-          return yield* Effect.fail(
-            FirecrackerMissingKvm.make({
-              message: `kvm-ok failed with exit code ${exitCode}`,
-            })
-          );
+          return yield* Effect.fail(FirecrackerMissingKvm);
         }
         return yield* Effect.void;
       });

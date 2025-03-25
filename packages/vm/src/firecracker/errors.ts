@@ -61,6 +61,4 @@ export class FirecrackerJailerFailed extends Schema.TaggedError<FirecrackerJaile
   vmId: Schema.String,
 }) {}
 
-export class FirecrackerMissingKvm extends Schema.TaggedError<FirecrackerMissingKvm>()("FirecrackerMissingKvm", {
-  message: Schema.String,
-}) {}
+export class FirecrackerMissingKvm extends Schema.TaggedError<FirecrackerMissingKvm>()("FirecrackerMissingKvm", {}) {}
