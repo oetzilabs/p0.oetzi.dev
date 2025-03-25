@@ -11,19 +11,21 @@ export const Header = () => {
   const { colorMode, toggleColorMode } = useColorMode();
   return (
     <header class="w-full p-2 flex flex-col">
-      <div class="items-center justify-between flex flex-row border border-neutral-100 dark:border-neutral-800 p-2">
+      <div class="items-center justify-between flex flex-row border border-neutral-300 dark:border-neutral-700 p-2 rounded-md">
         <A href="/" class="font-bold font-[Inter]">
           Dashboard - P0
         </A>
         <div class=""></div>
         <div class="">
-          <Button onClick={() => toggleColorMode()} size="icon">
+          <Button onClick={() => toggleColorMode()} class="h-6 px-2">
             <Switch>
               <Match when={colorMode() === "light"}>
-                <Sun class="size-4" />
+                Bright
+                <Sun class="size-3.5" />
               </Match>
               <Match when={colorMode() === "dark"}>
-                <Moon class="size-4" />
+                Dark
+                <Moon class="size-3.5" />
               </Match>
             </Switch>
           </Button>

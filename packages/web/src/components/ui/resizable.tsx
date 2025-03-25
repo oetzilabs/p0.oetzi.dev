@@ -1,63 +1,65 @@
-import { cn } from "@/libs/cn";
-import type { DynamicProps, HandleProps, RootProps } from "@corvu/resizable";
-import ResizablePrimitive from "@corvu/resizable";
-import type { ValidComponent, VoidProps } from "solid-js";
-import { Show, splitProps } from "solid-js";
+import type { ValidComponent } from "solid-js"
+import { Show, splitProps } from "solid-js"
 
-export const ResizablePanel = ResizablePrimitive.Panel;
+import type { DynamicProps, HandleProps, RootProps } from "@corvu/resizable"
+import ResizablePrimitive from "@corvu/resizable"
 
-type resizableProps<T extends ValidComponent = "div"> = RootProps<T> & {
-	class?: string;
-};
+import { cn } from "~/lib/utils"
 
-export const Resizable = <T extends ValidComponent = "div">(
-	props: DynamicProps<T, resizableProps<T>>,
+type ResizableProps<T extends ValidComponent = "div"> = RootProps<T> & { class?: string }
+
+const Resizable = <T extends ValidComponent = "div">(props: DynamicProps<T, ResizableProps<T>>) => {
+  const [, rest] = splitProps(props as ResizableProps, ["class"])
+  return (
+    <ResizablePrimitive
+      class={cn("flex size-full data-[orientation=vertical]:flex-col", props.class)}
+      {...rest}
+    />
+  )
+}
+
+const ResizablePanel = ResizablePrimitive.Panel
+
+type ResizableHandleProps<T extends ValidComponent = "button"> = HandleProps<T> & {
+  class?: string
+  withHandle?: boolean
+}
+
+const ResizableHandle = <T extends ValidComponent = "button">(
+  props: DynamicProps<T, ResizableHandleProps<T>>
 ) => {
-	const [local, rest] = splitProps(props as resizableProps, ["class"]);
+  const [, rest] = splitProps(props as ResizableHandleProps, ["class", "withHandle"])
+  return (
+    <ResizablePrimitive.Handle
+      class={cn(
+        "relative flex w-px shrink-0 items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 data-[orientation=vertical]:h-px data-[orientation=vertical]:w-full data-[orientation=vertical]:after:left-0 data-[orientation=vertical]:after:h-1 data-[orientation=vertical]:after:w-full data-[orientation=vertical]:after:-translate-y-1/2 data-[orientation=vertical]:after:translate-x-0 [&[data-orientation=vertical]>div]:rotate-90",
+        props.class
+      )}
+      {...rest}
+    >
+      <Show when={props.withHandle}>
+        <div class="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="size-2.5"
+          >
+            <path d="M9 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+            <path d="M9 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+            <path d="M9 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+            <path d="M15 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+            <path d="M15 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+            <path d="M15 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+          </svg>
+        </div>
+      </Show>
+    </ResizablePrimitive.Handle>
+  )
+}
 
-	return <ResizablePrimitive class={cn("size-full", local.class)} {...rest} />;
-};
-
-type resizableHandleProps<T extends ValidComponent = "button"> = VoidProps<
-	HandleProps<T> & {
-		class?: string;
-		withHandle?: boolean;
-	}
->;
-
-export const ResizableHandle = <T extends ValidComponent = "button">(
-	props: DynamicProps<T, resizableHandleProps<T>>,
-) => {
-	const [local, rest] = splitProps(props as resizableHandleProps, [
-		"class",
-		"withHandle",
-	]);
-
-	return (
-		<ResizablePrimitive.Handle
-			class={cn(
-				"flex w-px items-center justify-center bg-border transition-shadow focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-offset-1 data-[orientation=vertical]:h-px data-[orientation=vertical]:w-full",
-				local.class,
-			)}
-			{...rest}
-		>
-			<Show when={local.withHandle}>
-				<div class="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-2.5 w-2.5"
-						viewBox="0 0 15 15"
-					>
-						<path
-							fill="currentColor"
-							fill-rule="evenodd"
-							d="M5.5 4.625a1.125 1.125 0 1 0 0-2.25a1.125 1.125 0 0 0 0 2.25m4 0a1.125 1.125 0 1 0 0-2.25a1.125 1.125 0 0 0 0 2.25M10.625 7.5a1.125 1.125 0 1 1-2.25 0a1.125 1.125 0 0 1 2.25 0M5.5 8.625a1.125 1.125 0 1 0 0-2.25a1.125 1.125 0 0 0 0 2.25m5.125 2.875a1.125 1.125 0 1 1-2.25 0a1.125 1.125 0 0 1 2.25 0M5.5 12.625a1.125 1.125 0 1 0 0-2.25a1.125 1.125 0 0 0 0 2.25"
-							clip-rule="evenodd"
-						/>
-						<title>Resizable handle</title>
-					</svg>
-				</div>
-			</Show>
-		</ResizablePrimitive.Handle>
-	);
-};
+export { Resizable, ResizablePanel, ResizableHandle }

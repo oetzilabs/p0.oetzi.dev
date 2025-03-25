@@ -1,5 +1,8 @@
 // @refresh reload
+import { Header } from "@/components/Header";
+import { Socket } from "@/components/Socket";
 import { Button } from "@/components/ui/button";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource/geist-mono";
 import "@fontsource/ibm-plex-sans/400.css";
@@ -18,9 +21,15 @@ import Loader2 from "lucide-solid/icons/loader-circle";
 import { ErrorBoundary, Show, Suspense } from "solid-js";
 import { isServer } from "solid-js/web";
 import { Toaster } from "solid-sonner";
-import { Header } from "./components/Header";
+import { getCookie } from "vinxi/http";
 import "./app.css";
-import { Socket } from "./components/Socket";
+import { AppSidebar } from "./components/app-sidebar";
+
+function getServerCookies() {
+  "use server";
+  const colorMode = getCookie("kb-color-mode");
+  return colorMode ? `kb-color-mode=${colorMode}` : "";
+}
 
 export default function App() {
   const queryClient = new QueryClient({
@@ -34,7 +43,7 @@ export default function App() {
   });
 
   //eslint-disable-next-line no-undef
-  const storageManager = cookieStorageManagerSSR(isServer ? "kb-color-mode=dark" : document.cookie);
+  const storageManager = cookieStorageManagerSSR(isServer ? getServerCookies() : document.cookie);
   return (
     <ErrorBoundary
       fallback={(error, reset) => (
@@ -82,16 +91,19 @@ export default function App() {
                       }}
                       gap={4}
                     />
-                    <Socket endpoint="localhost:34437">
-                      <Header />
-                      <div
-                        class="w-full flex flex-col h-full overflow-clip"
-                        style={{
-                          "scrollbar-gutter": "stable both-edges",
-                        }}
-                      >
-                        {props.children}
-                      </div>
+                    <Socket endpoint="localhost:34437" disabled={() => true}>
+                      <SidebarProvider>
+                        <AppSidebar />
+                        <div
+                          class="w-full flex flex-col h-full overflow-clip p-2 gap-2"
+                          style={{
+                            "scrollbar-gutter": "stable both-edges",
+                          }}
+                        >
+                          <SidebarTrigger />
+                          {props.children}
+                        </div>
+                      </SidebarProvider>
                     </Socket>
                   </ColorModeProvider>
                 </Suspense>

@@ -1,0 +1,1 @@
+sudo apt install e2fsprogs build-essential rustc golang nodejs

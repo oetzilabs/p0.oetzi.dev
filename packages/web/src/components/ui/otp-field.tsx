@@ -1,83 +1,84 @@
-import { cn } from "@/libs/cn";
-import type { DynamicProps, RootProps } from "@corvu/otp-field";
-import OTPFieldPrimitive from "@corvu/otp-field";
-import type { ComponentProps, ValidComponent } from "solid-js";
-import { Show, splitProps } from "solid-js";
+import type { Component, ComponentProps, ValidComponent } from "solid-js"
+import { Show, splitProps } from "solid-js"
 
-export const OTPFieldInput = OTPFieldPrimitive.Input;
+import type { DynamicProps, RootProps } from "@corvu/otp-field"
+import OtpField from "@corvu/otp-field"
 
-type OTPFieldProps<T extends ValidComponent = "div"> = RootProps<T> & {
-	class?: string;
-};
+import { cn } from "~/lib/utils"
 
-export const OTPField = <T extends ValidComponent = "div">(
-	props: DynamicProps<T, OTPFieldProps<T>>,
-) => {
-	const [local, rest] = splitProps(props, ["class"]);
+export const REGEXP_ONLY_DIGITS = "^\\d*$"
+export const REGEXP_ONLY_CHARS = "^[a-zA-Z]*$"
+export const REGEXP_ONLY_DIGITS_AND_CHARS = "^[a-zA-Z0-9]*$"
 
-	return (
-		<OTPFieldPrimitive
-			class={cn(
-				"flex items-center gap-2 has-[:disabled]:opacity-50",
-				local.class,
-			)}
-			{...rest}
-		/>
-	);
-};
+type OTPFieldProps<T extends ValidComponent = "div"> = RootProps<T> & { class?: string }
 
-export const OTPFieldGroup = (props: ComponentProps<"div">) => {
-	const [local, rest] = splitProps(props, ["class"]);
+const OTPField = <T extends ValidComponent = "div">(props: DynamicProps<T, OTPFieldProps<T>>) => {
+  const [local, others] = splitProps(props as OTPFieldProps, ["class"])
+  return (
+    <OtpField
+      class={cn(
+        "flex items-center gap-2 disabled:cursor-not-allowed has-[:disabled]:opacity-50",
+        local.class
+      )}
+      {...others}
+    />
+  )
+}
 
-	return <div class={cn("flex items-center", local.class)} {...rest} />;
-};
+const OTPFieldInput = OtpField.Input
 
-export const OTPFieldSeparator = (props: ComponentProps<"div">) => {
-	return (
-		// biome-ignore lint/a11y/useAriaPropsForRole: []
-		<div role="separator" {...props}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="size-4"
-				viewBox="0 0 15 15"
-			>
-				<title>Separator</title>
-				<path
-					fill="currentColor"
-					fill-rule="evenodd"
-					d="M5 7.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5"
-					clip-rule="evenodd"
-				/>
-			</svg>
-		</div>
-	);
-};
+const OTPFieldGroup: Component<ComponentProps<"div">> = (props) => {
+  const [local, others] = splitProps(props, ["class"])
+  return <div class={cn("flex items-center", local.class)} {...others} />
+}
 
-export const OTPFieldSlot = (
-	props: ComponentProps<"div"> & { index: number },
-) => {
-	const [local, rest] = splitProps(props, ["class", "index"]);
-	const context = OTPFieldPrimitive.useContext();
-	const char = () => context.value()[local.index];
-	const hasFakeCaret = () =>
-		context.value().length === local.index && context.isInserting();
-	const isActive = () => context.activeSlots().includes(local.index);
+const OTPFieldSlot: Component<ComponentProps<"div"> & { index: number }> = (props) => {
+  const [local, others] = splitProps(props, ["class", "index"])
+  const context = OtpField.useContext()
+  const char = () => context.value()[local.index]
+  const showFakeCaret = () => context.value().length === local.index && context.isInserting()
 
-	return (
-		<div
-			class={cn(
-				"relative flex size-9 items-center justify-center border-y border-r border-input text-sm shadow-sm transition-shadow first:rounded-l-md first:border-l last:rounded-r-md",
-				isActive() && "z-10 ring-[1.5px] ring-ring",
-				local.class,
-			)}
-			{...rest}
-		>
-			{char()}
-			<Show when={hasFakeCaret()}>
-				<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-					<div class="h-4 w-px animate-caret-blink bg-foreground" />
-				</div>
-			</Show>
-		</div>
-	);
-};
+  return (
+    <div
+      class={cn(
+        "group relative flex size-10 items-center justify-center border-y border-r border-input text-sm first:rounded-l-md first:border-l last:rounded-r-md",
+        local.class
+      )}
+      {...others}
+    >
+      <div
+        class={cn(
+          "absolute inset-0 z-10 transition-all group-first:rounded-l-md group-last:rounded-r-md",
+          context.activeSlots().includes(local.index) && "ring-2 ring-ring ring-offset-background"
+        )}
+      />
+      {char()}
+      <Show when={showFakeCaret()}>
+        <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div class="h-4 w-px animate-caret-blink bg-foreground duration-1000" />
+        </div>
+      </Show>
+    </div>
+  )
+}
+
+const OTPFieldSeparator: Component<ComponentProps<"div">> = (props) => {
+  return (
+    <div {...props}>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="size-6"
+      >
+        <circle cx="12.1" cy="12.1" r="1" />
+      </svg>
+    </div>
+  )
+}
+
+export { OTPField, OTPFieldInput, OTPFieldGroup, OTPFieldSlot, OTPFieldSeparator }

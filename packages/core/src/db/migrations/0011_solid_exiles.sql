@@ -1,0 +1,1 @@
+ALTER TABLE `servers` ADD `status` text DEFAULT 'available' NOT NULL;

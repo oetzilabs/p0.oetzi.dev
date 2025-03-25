@@ -1,85 +1,75 @@
-import { cn } from "@/libs/cn";
-import type { PolymorphicProps } from "@kobalte/core/polymorphic";
-import type {
-	ToggleGroupItemProps,
-	ToggleGroupRootProps,
-} from "@kobalte/core/toggle-group";
-import { ToggleGroup as ToggleGroupPrimitive } from "@kobalte/core/toggle-group";
-import type { VariantProps } from "class-variance-authority";
-import type { Accessor, ParentProps, ValidComponent } from "solid-js";
-import { createContext, createMemo, splitProps, useContext } from "solid-js";
-import { toggleVariants } from "./toggle";
+import type { JSX, ValidComponent } from "solid-js"
+import { createContext, splitProps, useContext } from "solid-js"
 
-const ToggleGroupContext =
-	createContext<Accessor<VariantProps<typeof toggleVariants>>>();
+import type { PolymorphicProps } from "@kobalte/core/polymorphic"
+import * as ToggleGroupPrimitive from "@kobalte/core/toggle-group"
+import type { VariantProps } from "class-variance-authority"
 
-const useToggleGroup = () => {
-	const context = useContext(ToggleGroupContext);
+import { cn } from "~/lib/utils"
+import { toggleVariants } from "~/components/ui/toggle"
 
-	if (!context) {
-		throw new Error(
-			"`useToggleGroup`: must be used within a `ToggleGroup` component",
-		);
-	}
+const ToggleGroupContext = createContext<VariantProps<typeof toggleVariants>>({
+  size: "default",
+  variant: "default"
+})
 
-	return context;
-};
+type ToggleGroupRootProps<T extends ValidComponent = "div"> =
+  ToggleGroupPrimitive.ToggleGroupRootProps<T> &
+    VariantProps<typeof toggleVariants> & { class?: string | undefined; children?: JSX.Element }
 
-type toggleGroupProps<T extends ValidComponent = "div"> = ParentProps<
-	ToggleGroupRootProps<T> &
-		VariantProps<typeof toggleVariants> & {
-			class?: string;
-		}
->;
-
-export const ToggleGroup = <T extends ValidComponent = "div">(
-	props: PolymorphicProps<T, toggleGroupProps<T>>,
+const ToggleGroup = <T extends ValidComponent = "div">(
+  props: PolymorphicProps<T, ToggleGroupRootProps<T>>
 ) => {
-	const [local, rest] = splitProps(props as toggleGroupProps, [
-		"class",
-		"children",
-		"size",
-		"variant",
-	]);
+  const [local, others] = splitProps(props as ToggleGroupRootProps, [
+    "class",
+    "children",
+    "size",
+    "variant"
+  ])
 
-	const value = createMemo<VariantProps<typeof toggleVariants>>(() => ({
-		size: local.size,
-		variant: local.variant,
-	}));
+  return (
+    <ToggleGroupPrimitive.Root
+      class={cn("flex items-center justify-center gap-1", local.class)}
+      {...others}
+    >
+      <ToggleGroupContext.Provider
+        value={{
+          get size() {
+            return local.size
+          },
+          get variant() {
+            return local.variant
+          }
+        }}
+      >
+        {local.children}
+      </ToggleGroupContext.Provider>
+    </ToggleGroupPrimitive.Root>
+  )
+}
 
-	return (
-		<ToggleGroupPrimitive
-			class={cn("flex items-center justify-center gap-1", local.class)}
-			{...rest}
-		>
-			<ToggleGroupContext.Provider value={value}>
-				{local.children}
-			</ToggleGroupContext.Provider>
-		</ToggleGroupPrimitive>
-	);
-};
+type ToggleGroupItemProps<T extends ValidComponent = "button"> =
+  ToggleGroupPrimitive.ToggleGroupItemProps<T> &
+    VariantProps<typeof toggleVariants> & { class?: string | undefined }
 
-type toggleGroupItemProps<T extends ValidComponent = "button"> =
-	ToggleGroupItemProps<T> & {
-		class?: string;
-	};
-
-export const ToggleGroupItem = <T extends ValidComponent = "button">(
-	props: PolymorphicProps<T, toggleGroupItemProps<T>>,
+const ToggleGroupItem = <T extends ValidComponent = "button">(
+  props: PolymorphicProps<T, ToggleGroupItemProps<T>>
 ) => {
-	const [local, rest] = splitProps(props as toggleGroupItemProps, ["class"]);
-	const context = useToggleGroup();
+  const [local, others] = splitProps(props as ToggleGroupItemProps, ["class", "size", "variant"])
+  const context = useContext(ToggleGroupContext)
+  return (
+    <ToggleGroupPrimitive.Item
+      class={cn(
+        toggleVariants({
+          size: context.size || local.size,
+          variant: context.variant || local.variant
+        }),
+        "hover:bg-muted hover:text-muted-foreground data-[pressed]:bg-accent data-[pressed]:text-accent-foreground",
+        local.class
+      )}
+      {...others}
+    />
+  )
+}
 
-	return (
-		<ToggleGroupPrimitive.Item
-			class={cn(
-				toggleVariants({
-					variant: context().variant,
-					size: context().size,
-				}),
-				local.class,
-			)}
-			{...rest}
-		/>
-	);
-};
+export { ToggleGroup, ToggleGroupItem }

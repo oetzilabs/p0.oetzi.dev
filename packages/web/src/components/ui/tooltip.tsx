@@ -1,45 +1,35 @@
-import { cn } from "@/libs/cn";
-import type { PolymorphicProps } from "@kobalte/core/polymorphic";
-import type {
-	TooltipContentProps,
-	TooltipRootProps,
-} from "@kobalte/core/tooltip";
-import { Tooltip as TooltipPrimitive } from "@kobalte/core/tooltip";
-import { type ValidComponent, mergeProps, splitProps } from "solid-js";
+import type { ValidComponent } from "solid-js"
+import { splitProps, type Component } from "solid-js"
 
-export const TooltipTrigger = TooltipPrimitive.Trigger;
+import type { PolymorphicProps } from "@kobalte/core/polymorphic"
+import * as TooltipPrimitive from "@kobalte/core/tooltip"
 
-export const Tooltip = (props: TooltipRootProps) => {
-	const merge = mergeProps<TooltipRootProps[]>(
-		{
-			gutter: 4,
-			flip: false,
-		},
-		props,
-	);
+import { cn } from "~/lib/utils"
 
-	return <TooltipPrimitive {...merge} />;
-};
+const TooltipTrigger = TooltipPrimitive.Trigger
 
-type tooltipContentProps<T extends ValidComponent = "div"> =
-	TooltipContentProps<T> & {
-		class?: string;
-	};
+const Tooltip: Component<TooltipPrimitive.TooltipRootProps> = (props) => {
+  return <TooltipPrimitive.Root gutter={4} {...props} />
+}
 
-export const TooltipContent = <T extends ValidComponent = "div">(
-	props: PolymorphicProps<T, tooltipContentProps<T>>,
+type TooltipContentProps<T extends ValidComponent = "div"> =
+  TooltipPrimitive.TooltipContentProps<T> & { class?: string | undefined }
+
+const TooltipContent = <T extends ValidComponent = "div">(
+  props: PolymorphicProps<T, TooltipContentProps<T>>
 ) => {
-	const [local, rest] = splitProps(props as tooltipContentProps, ["class"]);
+  const [local, others] = splitProps(props as TooltipContentProps, ["class"])
+  return (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Content
+        class={cn(
+          "z-50 origin-[var(--kb-popover-content-transform-origin)] overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
+          local.class
+        )}
+        {...others}
+      />
+    </TooltipPrimitive.Portal>
+  )
+}
 
-	return (
-		<TooltipPrimitive.Portal>
-			<TooltipPrimitive.Content
-				class={cn(
-					"z-50 overflow-hidden rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95",
-					local.class,
-				)}
-				{...rest}
-			/>
-		</TooltipPrimitive.Portal>
-	);
-};
+export { Tooltip, TooltipTrigger, TooltipContent }

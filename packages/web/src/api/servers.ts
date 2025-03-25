@@ -1,0 +1,31 @@
+import { action, query } from "@solidjs/router";
+import { Effect } from "effect";
+import { ServerRepository } from "@p0/core/src/server/models/servers/repository";
+import { type CreateServer } from "@p0/core/src/server/models/servers/schemas";
+
+export const list = query(async () => {
+  "use server";
+
+  const program = Effect.gen(function* (_) {
+    const server_repo = yield* _(ServerRepository);
+    const servers = yield* server_repo.all;
+    return servers;
+  }).pipe(Effect.provide(ServerRepository.Default));
+
+  const servers = await Effect.runPromise(program);
+
+  return servers;
+}, "list-servers");
+
+export const create = action(async (data: CreateServer) => {
+  "use server";
+  const server = await Effect.runPromise(
+    Effect.gen(function* (_) {
+      const server_repo = yield* _(ServerRepository);
+      const server = yield* server_repo.create(data);
+      return server;
+    }).pipe(Effect.provide(ServerRepository.Default))
+  );
+
+  return server;
+});

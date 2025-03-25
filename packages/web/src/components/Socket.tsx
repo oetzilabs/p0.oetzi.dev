@@ -1,7 +1,7 @@
 import type { Accessor, JSX } from "solid-js";
 import { createGlobalEmitter } from "@solid-primitives/event-bus";
 import { createAsync } from "@solidjs/router";
-import { createContext, createSignal, onCleanup, onMount, useContext } from "solid-js";
+import { createContext, createSignal, onCleanup, onMount, Show, useContext } from "solid-js";
 import { isServer } from "solid-js/web";
 import { SocketEvents } from "@p0/core/src/server/socket/events";
 // import { WebSocket, MessageEvent } from "ws";
@@ -36,6 +36,7 @@ export const SocketContext = createContext<SocketType>();
 export type SocketProps = {
   children: JSX.Element;
   endpoint: string;
+  disabled: Accessor<boolean>;
 };
 
 const globalEmitter = createGlobalEmitter<SocketEvents.Events>(); // Create a global event emitter
@@ -106,6 +107,10 @@ export const Socket = (props: SocketProps) => {
   onMount(() => {
     if (isServer) {
       console.log("RealtimeContext: realtime is not available on the server");
+      return;
+    }
+    if (props.disabled()) {
+      console.log("RealtimeContext: realtime is disabled");
       return;
     }
 
