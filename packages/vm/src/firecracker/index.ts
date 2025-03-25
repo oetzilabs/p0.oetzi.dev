@@ -89,14 +89,10 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       return version;
     };
 
-    const socketGen = (vmId: VmId, jailed: boolean) => {
-      switch (jailed) {
-        case false:
-          return `/tmp/firecracker-${vmId}.socket`;
-        case true:
-          return `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
-      }
-    };
+    const socketGen = (vmId: VmId, jailed: boolean) =>
+      !jailed
+        ? `/tmp/firecracker-${vmId}.socket`
+        : `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
 
     const run_command = (com: Command.Command, area: string) =>
       Effect.gen(function* (_) {
