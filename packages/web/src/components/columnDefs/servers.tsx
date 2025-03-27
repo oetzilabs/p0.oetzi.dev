@@ -2,10 +2,21 @@ import { Server } from "@p0/core/src/server/models/servers/schemas";
 import { ColumnDef } from "@tanstack/solid-table";
 import { Button } from "../ui/button";
 import ArrowUpDown from "lucide-solid/icons/arrow-up-down";
+import { A } from "@solidjs/router";
+import Settings from "lucide-solid/icons/settings";
 
 export const columns: ColumnDef<Server>[] = [
   {
     accessorKey: "name",
+    cell(props) {
+      return (
+        <div class="px-1">
+          <A class="hover:underline" href={`/servers/${props.row.original.id}`}>
+            {props.row.original.name}
+          </A>
+        </div>
+      );
+    },
     filterFn: "fuzzy",
     header: (props) => {
       return (
@@ -65,6 +76,19 @@ export const columns: ColumnDef<Server>[] = [
           Connections
           <ArrowUpDown class="ml-2 size-3" />
         </Button>
+      );
+    },
+  },
+  {
+    accessorKey: "actions",
+    header: "Actions",
+    cell(props) {
+      return (
+        <div class="flex flex-row gap-2">
+          <Button size="icon" variant="ghost" as={A} href={`/servers/${props.row.original.id}/settings`} class="size-6">
+            <Settings class="size-3" />
+          </Button>
+        </div>
       );
     },
   },

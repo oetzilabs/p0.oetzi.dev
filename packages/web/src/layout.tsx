@@ -16,7 +16,7 @@ export const AppLayout = (props: ParentProps) => {
     >
       <main class="w-full h-full flex flex-col grow border rounded-md shadow relative">
         <div class="p-2 border-b flex flex-row items-center justify-between">
-          <div class="flex flex-row items-center gap-2">
+          <div class="flex flex-row items-center gap-2 z-50">
             <SidebarTrigger />
             <Header />
           </div>

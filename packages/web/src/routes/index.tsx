@@ -1,46 +1,37 @@
 import { Button } from "@/components/ui/button";
-import { RouteDefinition } from "@solidjs/router";
-import { createSignal, ErrorBoundary, onCleanup, onMount, Show, Suspense } from "solid-js";
-import { list } from "../api/servers";
-import Globe from "globe.gl";
-import { TextField, TextFieldInput } from "../components/ui/text-field";
+import { A, RouteDefinition, useNavigate } from "@solidjs/router";
 import Search from "lucide-solid/icons/search";
-import { clientOnly } from "@solidjs/start";
-import Loader2 from "lucide-solid/icons/loader-2";
+import { createSignal } from "solid-js";
+import { TextField, TextFieldInput } from "../components/ui/text-field";
 
-const ClientGlobe = clientOnly(() => import("@/components/ClientGlobe"), { lazy: true });
-
-// export const route = {
-//   preload: async (props) => {
-//     const serverList = await list();
-//     return { serverList };
-//   },
-// } as RouteDefinition;
+export const route = {} as RouteDefinition;
 
 export default function Home() {
+  const navigate = useNavigate();
+
+  const [search, setSearch] = createSignal("");
+
   return (
     <div class="flex items-center justify-center h-full grow -mt-56">
-      <div class="flex flex-col items-center gap-8 w-max">
-        <ErrorBoundary
-          fallback={(err, reset) => (
-            <div class="text-muted-foreground flex flex-col gap-1 items-center justify-center">
-              <span>Upps, an Error occured.</span>
-              <span>We couldn't load the Globe. Please try again later.</span>
-            </div>
-          )}
-        >
-          <Suspense fallback={"loading"}>
-            <ClientGlobe fallback={<Loader2 class="size-4 animate-spin text-muted-foreground" />} />
-          </Suspense>
-        </ErrorBoundary>
-        <div class="flex w-full gap-2">
-          <TextField class="flex-grow w-max max-w-lg">
-            <TextFieldInput placeholder="Search the world..." class="w-full max-w-full"></TextFieldInput>
+      <div class="flex flex-col items-center gap-12 w-96">
+        <div>
+          <div class="size-80 rounded-full bg-teal-200/10 dark:bg-teal-900/10 border border-teal-300 dark:border-teal-800"></div>
+        </div>
+        <form class="flex w-full gap-2">
+          <TextField class="w-full max-w-full">
+            <TextFieldInput
+              value={search()}
+              onInput={(e) => {
+                setSearch(e.currentTarget.value);
+              }}
+              placeholder="Search the world..."
+              class="w-full max-w-full items-center"
+            />
           </TextField>
-          <Button size="icon" class="">
+          <Button size="icon" type="submit" as={A} href={`/servers/?query=${encodeURI(search())}`}>
             <Search class="size-4" />
           </Button>
-        </div>
+        </form>
       </div>
     </div>
   );
