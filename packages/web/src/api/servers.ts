@@ -29,3 +29,29 @@ export const create = action(async (data: CreateServer) => {
 
   return server;
 });
+
+export const findById = query(async (id: string) => {
+  "use server";
+  const server = await Effect.runPromise(
+    Effect.gen(function* (_) {
+      const server_repo = yield* _(ServerRepository);
+      const server = yield* server_repo.find_by_id(id);
+      return server;
+    }).pipe(Effect.provide(ServerRepository.Default))
+  );
+
+  return server;
+}, "find-server-by-id");
+
+export const findByName = query(async (name: string) => {
+  "use server";
+  const server = await Effect.runPromise(
+    Effect.gen(function* (_) {
+      const server_repo = yield* _(ServerRepository);
+      const server = yield* server_repo.find_by_name(name);
+      return server;
+    }).pipe(Effect.provide(ServerRepository.Default))
+  );
+
+  return server;
+}, "find-server-by-name");

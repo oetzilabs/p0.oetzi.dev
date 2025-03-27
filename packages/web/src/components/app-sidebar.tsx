@@ -1,13 +1,16 @@
-import { For, Switch } from "solid-js";
 import { A } from "@solidjs/router";
+import { For, Switch } from "solid-js";
 
 // import { IconCalendar, IconHome, IconMail, IconSearch, IconSettings } from "@/components/icons";
-import Servers from "lucide-solid/icons/server";
 import Home from "lucide-solid/icons/home";
-import Mail from "lucide-solid/icons/mail";
-import Search from "lucide-solid/icons/search";
+import Servers from "lucide-solid/icons/server";
 import Settings from "lucide-solid/icons/settings";
 
+import { useColorMode } from "@kobalte/core";
+import Moon from "lucide-solid/icons/moon";
+import Sun from "lucide-solid/icons/sun";
+import { Match } from "solid-js";
+import { DomainAsLogo } from "~/components/DomainAsLogo";
 import {
   Sidebar,
   SidebarContent,
@@ -15,16 +18,14 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "~/components/ui/sidebar";
-import { useColorMode } from "@kobalte/core";
-import { Match } from "solid-js";
-import Sun from "lucide-solid/icons/sun";
-import Moon from "lucide-solid/icons/moon";
 
-const items = [
+const topItems = [
   {
     title: "Home",
     url: "/",
@@ -35,11 +36,9 @@ const items = [
     url: "/servers",
     icon: Servers,
   },
-  {
-    title: "Search",
-    url: "search",
-    icon: Search,
-  },
+];
+
+const bottomItems = [
   {
     title: "Settings",
     url: "settings",
@@ -50,13 +49,18 @@ const items = [
 export function AppSidebar() {
   const { colorMode, toggleColorMode } = useColorMode();
   return (
-    <Sidebar>
+    <Sidebar variant="floating">
+      <SidebarHeader>
+        <A href="/" class="w-full flex flex-col items-center justify-center ">
+          <DomainAsLogo />
+        </A>
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <For each={items}>
+              <For each={topItems}>
                 {(item) => (
                   <SidebarMenuItem>
                     <SidebarMenuButton as={A} href={item.url}>
@@ -69,8 +73,20 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <div class="flex flex-col grow"></div>
+        <SidebarSeparator />
         <SidebarFooter>
           <SidebarMenu>
+            <For each={bottomItems}>
+              {(item) => (
+                <SidebarMenuItem>
+                  <SidebarMenuButton as={A} href={item.url}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+            </For>
             <SidebarMenuItem>
               <SidebarMenuButton onClick={() => toggleColorMode()}>
                 <Switch>

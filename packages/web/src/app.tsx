@@ -24,6 +24,7 @@ import { Toaster } from "solid-sonner";
 import { getCookie } from "vinxi/http";
 import "./app.css";
 import { AppSidebar } from "./components/app-sidebar";
+import { AppLayout } from "./layout";
 
 function getServerCookies() {
   "use server";
@@ -94,15 +95,7 @@ export default function App() {
                     <Socket endpoint="localhost:34437" disabled={() => true}>
                       <SidebarProvider>
                         <AppSidebar />
-                        <div
-                          class="w-full flex flex-col h-full overflow-clip p-2 gap-2"
-                          style={{
-                            "scrollbar-gutter": "stable both-edges",
-                          }}
-                        >
-                          <SidebarTrigger />
-                          {props.children}
-                        </div>
+                        <AppLayout>{props.children}</AppLayout>
                       </SidebarProvider>
                     </Socket>
                   </ColorModeProvider>

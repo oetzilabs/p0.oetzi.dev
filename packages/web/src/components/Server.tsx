@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 
 export const Server = (props: { server: ServerType }) => {
   return (
-    <div class="flex flex-col p-2 border border-neutral-300 dark:border-neutral-700 w-full gap-2 rounded-sm">
+    <div class="flex flex-col p-2 border w-full gap-2 rounded-sm">
       <div class="flex flex-row items-center justify-between gap-2">
         <div class="font-bold">{props.server.name}</div>
         <div class="flex flex-row items-center gap-2">
