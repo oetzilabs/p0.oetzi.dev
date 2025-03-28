@@ -22,3 +22,6 @@ export const runner = (run: Run) =>
     const firecracker = yield* _(Firecracker.FirecrackerService);
     return yield* firecracker.run(run);
   });
+
+export * from "./firecracker";
+export * from "./jailer";

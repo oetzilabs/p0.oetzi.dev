@@ -85,6 +85,55 @@
       "when": 1742891349632,
       "tag": "0011_solid_exiles",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1743159555885,
+      "tag": "0012_living_emma_frost",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1743159610925,
+      "tag": "0013_lush_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1743160039529,
+      "tag": "0014_lively_puck",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1743161803479,
+      "tag": "0015_friendly_franklin_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1743161837244,
+      "tag": "0016_tidy_black_crow",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1743162484894,
+      "tag": "0017_messy_silver_surfer",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1743167110511,
+      "tag": "0018_yielding_odin",
+      "breakpoints": true
     }
   ]
 }

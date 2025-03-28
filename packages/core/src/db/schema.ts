@@ -6,3 +6,7 @@ export * from "./schemas/sessions";
 export * from "./schemas/server_brokers";
 export * from "./schemas/brokers_load_balancers";
 export * from "./schemas/compute_units";
+export * from "./schemas/machine_configs";
+export * from "./schemas/boot_sources";
+export * from "./schemas/vms";
+export * from "./schemas/server_tags";

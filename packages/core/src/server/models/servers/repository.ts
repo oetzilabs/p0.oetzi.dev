@@ -1,7 +1,7 @@
 import { eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import { Database, DatabaseLive } from "../../../db";
-import { servers } from "../../../db/schema";
+import { servers, virtual_machines } from "../../../db/schema";
 import {
   ServerAlreadyDeleted,
   ServerAlreadyExists,
@@ -85,11 +85,24 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
     const find_by_id = (id: string) =>
       Effect.gen(function* (_) {
         const get_server = Effect.tryPromise(() =>
-          db.select().from(servers).where(eq(servers.id, id)).limit(1).execute()
+          db.query.servers
+            .findFirst({
+              where: (fields, operators) => operators.eq(fields.id, id),
+              with: {
+                vms: {
+                  with: {
+                    boot_source: true,
+                    machine_config: true,
+                  },
+                },
+                server_tags: {
+                  with: { tag: true },
+                },
+              },
+            })
+            .execute()
         );
-        const _servers = yield* get_server;
-        if (_servers.length !== 1) return yield* Effect.fail(new ServerNotFound());
-        const server = _servers[0];
+        const server = yield* get_server;
         if (!server) return yield* Effect.fail(new ServerNotFound());
         return yield* Effect.succeed(server);
       });

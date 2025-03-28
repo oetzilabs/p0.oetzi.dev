@@ -1,0 +1,1 @@
+ALTER TABLE `virtual_machines` ADD `server_id` text NOT NULL REFERENCES servers(id);

@@ -8,7 +8,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "bun-types": "latest",
-    "drizzle-kit": "^0.30.4"
+    "drizzle-kit": "^0.30.6"
   },
   "dependencies": {
     "@effect/experimental": "0.44.1",
@@ -18,7 +18,7 @@
     "@libsql/client": "0.15.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "dotenv": "^16.4.7",
-    "drizzle-orm": "0.40.1",
+    "drizzle-orm": "0.41.0",
     "drizzle-valibot": "^0.4.0",
     "effect": "3.14.1",
     "valibot": "1.0.0"

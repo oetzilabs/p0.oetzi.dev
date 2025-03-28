@@ -21,7 +21,7 @@ export const AppLayout = (props: ParentProps) => {
             <Header />
           </div>
         </div>
-        <div class="p-2 grow h-full w-full flex flex-col">{props.children}</div>
+        <div class="grow h-full w-full flex flex-col overflow-auto">{props.children}</div>
       </main>
     </div>
   );

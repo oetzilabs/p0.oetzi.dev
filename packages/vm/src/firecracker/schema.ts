@@ -71,8 +71,11 @@ export const ResourceSchema = Schema.Struct({
   memory: Schema.Number,
 });
 
+export const VmTypeSchema = Schema.Literal("worker", "jailed_vm", "vm");
+export type VmTypeType = Schema.Schema.Type<typeof VmTypeSchema>;
+
 export const BaseConfigSchema = Schema.Struct({
-  type: Schema.optional(Schema.Literal("worker", "jailed_vm", "vm")),
+  type: Schema.optional(VmTypeSchema),
   timeout: Schema.optional(Schema.Duration),
   persistent: Schema.optional(Schema.Boolean),
   modules: Schema.optional(ModulesSchema),

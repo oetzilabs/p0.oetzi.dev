@@ -2,9 +2,6 @@
   "name": "@p0/vm",
   "module": "src/index.ts",
   "type": "module",
-  "exports": [
-    "./src/index.ts"
-  ],
   "devDependencies": {
     "@effect/language-service": "^0.4.0",
     "@effect/vitest": "^0.20.1",

@@ -31,7 +31,7 @@ export default function Servers() {
 
   return (
     <div class="w-full h-full flex flex-col gap-2">
-      <div class="flex flex-col border w-full rounded-md">
+      <div class="flex flex-col w-full">
         <Show when={serverList()} fallback={<div class="">Loading...</div>}>
           {(servers) => (
             <div class="flex flex-col p-2 gap-2">
