@@ -1,7 +1,7 @@
 import { eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import { Database, DatabaseLive } from "../../../db";
-import { servers, virtual_machines } from "../../../db/schema";
+import { servers } from "../../../db/schema";
 import {
   ServerAlreadyDeleted,
   ServerAlreadyExists,
@@ -93,6 +93,7 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
                   with: {
                     boot_source: true,
                     machine_config: true,
+                    snapshots: true,
                   },
                 },
                 server_tags: {

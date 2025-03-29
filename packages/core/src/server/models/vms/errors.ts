@@ -19,7 +19,9 @@ export class VirtualMachineNotUpdated extends Schema.TaggedError<VirtualMachineN
 ) {}
 export class VirtualMachineNotCreated extends Schema.TaggedError<VirtualMachineNotCreated>()(
   "VirtualMachineNotCreated",
-  {}
+  {
+    message: Schema.optional(Schema.String),
+  }
 ) {}
 export class VirtualMachineAlreadyDeleted extends Schema.TaggedError<VirtualMachineAlreadyDeleted>()(
   "VirtualMachineAlreadyDeleted",
@@ -29,3 +31,24 @@ export class VirtualMachineAlreadyDeleted extends Schema.TaggedError<VirtualMach
 export class BootSourceNotFound extends Schema.TaggedError<BootSourceNotFound>()("BootSourceNotFound", {}) {}
 
 export class MachineConfigNotFound extends Schema.TaggedError<MachineConfigNotFound>()("MachineConfigNotFound", {}) {}
+
+export class MachineConfigNotCreated extends Schema.TaggedError<MachineConfigNotCreated>()(
+  "MachineConfigNotCreated",
+  {}
+) {}
+
+export class MachineConfigAlreadyExists extends Schema.TaggedError<MachineConfigAlreadyExists>()(
+  "MachineConfigAlreadyExists",
+  {
+    name: Schema.String,
+  }
+) {}
+
+export class NoBootSourceFileProvided extends Schema.TaggedError<NoBootSourceFileProvided>()(
+  "NoBootSourceFileProvided",
+  {}
+) {}
+
+export class BootSourceAlreadyExists extends Schema.TaggedError<BootSourceAlreadyExists>()("BootSourceAlreadyExists", {
+  name: Schema.String,
+}) {}

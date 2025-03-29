@@ -29,9 +29,7 @@ export const server_has_server_tag = t.sqliteTable(
       .notNull()
       .references(() => server_tags.id),
   },
-  (table) => ({
-    primaryKey: t.primaryKey({ columns: [table.server_id, table.server_tag_id] }),
-  })
+  (table) => [t.primaryKey({ columns: [table.server_id, table.server_tag_id] })]
 );
 
 export const ServerHasServerTagSchema = createSelectSchema(server_has_server_tag);

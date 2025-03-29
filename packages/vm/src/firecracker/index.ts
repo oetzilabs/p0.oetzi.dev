@@ -9,6 +9,7 @@ import {
   FireCrackerFailedToBoot,
   FireCrackerFailedToStartVM,
   FirecrackerMissingKvm,
+  FirecrackerMissingSetupFiles,
   FireCrackerVmNotCreated,
 } from "./errors";
 import { JailerLive, JailerService } from "../jailer";
@@ -58,9 +59,35 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
     const env = Command.env({
       PATH,
     });
+    const run_command = (com: Command.Command, area: string) =>
+      Effect.gen(function* (_) {
+        const _process = yield* pipe(
+          Command.start(com),
+          Effect.flatMap((_process) =>
+            Effect.gen(function* (_) {
+              const stdoutStream = _process.stdout.pipe(Stream.decodeText("utf8"));
+              const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));
+
+              yield* stdoutStream.pipe(
+                Stream.runForEach((line) => logger.info(area, line)),
+                Effect.fork
+              );
+
+              yield* stderrStream.pipe(
+                Stream.runForEach((line) => logger.error(area, line)),
+                Effect.fork
+              );
+              return _process;
+            })
+          )
+        );
+        return _process;
+      });
 
     const checkForKvmOK = () =>
       Effect.gen(function* (_) {
+        const skip_kvm_check = yield* Config.boolean("SKIP_KVM_CHECK").pipe(Config.withDefault(false));
+        if (skip_kvm_check) return yield* Effect.void;
         const _process = yield* run_command(Command.make("kvm-ok"), "checkForKvmOK").pipe(
           Effect.catchTags({
             BadArgument: () => Effect.fail(FirecrackerMissingKvm),
@@ -93,31 +120,6 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       !jailed
         ? `/tmp/firecracker-${vmId}.socket`
         : `${STARTING_DIRECTORY}/jailer/firecracker-${FIRECRACKER_VERSION}-${arch}/${vmId}/root/run/firecracker.socket`;
-
-    const run_command = (com: Command.Command, area: string) =>
-      Effect.gen(function* (_) {
-        const _process = yield* pipe(
-          Command.start(com),
-          Effect.flatMap((_process) =>
-            Effect.gen(function* (_) {
-              const stdoutStream = _process.stdout.pipe(Stream.decodeText("utf8"));
-              const stderrStream = _process.stderr.pipe(Stream.decodeText("utf8"));
-
-              yield* stdoutStream.pipe(
-                Stream.runForEach((line) => logger.info(area, line)),
-                Effect.fork
-              );
-
-              yield* stderrStream.pipe(
-                Stream.runForEach((line) => logger.error(area, line)),
-                Effect.fork
-              );
-              return _process;
-            })
-          )
-        );
-        return _process;
-      });
 
     const UBUNTU_VERSIONS: {
       [key: string]: string;
@@ -243,7 +245,8 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
       if (!rootsFile_exists) {
         yield* logger.info(
           "downloadRootfs",
-          `Downloading rootfs for ${FIRECRACKER_LINUX_VERSION} ${FIRECRACKER_MAIN_VERSION}`
+          `Downloading rootfs for ${FIRECRACKER_LINUX_VERSION} ${FIRECRACKER_MAIN_VERSION}`,
+          rootFsFile.from
         );
         rootFsFile = yield* downloaded_file(rootFsFile);
       }
@@ -813,7 +816,26 @@ export class FirecrackerService extends Effect.Service<FirecrackerService>()("@p
         })
       );
 
-    return { run, close } as const;
+    const checkDefaults = () =>
+      Effect.gen(function* (_) {
+        const skip_defaults_check = yield* Config.boolean("SKIP_DEFAULTS_CHECK").pipe(Config.withDefault(false));
+        if (skip_defaults_check) return yield* Effect.void;
+
+        // do the basic files exist?
+        const files = [
+          path.join(STARTING_DIRECTORY, "filesystem-collection", "rootfs.ext4"),
+          path.join(STARTING_DIRECTORY, "jailer", `firecracker-${FIRECRACKER_VERSION}-${arch}.tgz`),
+          path.join(STARTING_DIRECTORY, "jailer", `jailer-${FIRECRACKER_VERSION}-${arch}.tgz`),
+          path.join(STARTING_DIRECTORY, "vmlinux-collection", `vmlinux-${FIRECRACKER_LINUX_VERSION}.tgz`),
+        ];
+        for (const file of files) {
+          const exists = yield* fs.exists(file);
+          if (!exists) return yield* Effect.fail(FirecrackerMissingSetupFiles.make({ files }));
+        }
+        return yield* Effect.void;
+      });
+
+    return { run, close, checkDefaults } as const;
   }),
   dependencies: [BaseLoggerLive, HttpModemLive, JailerLive],
 }) {}

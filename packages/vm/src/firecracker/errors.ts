@@ -62,3 +62,10 @@ export class FirecrackerJailerFailed extends Schema.TaggedError<FirecrackerJaile
 }) {}
 
 export class FirecrackerMissingKvm extends Schema.TaggedError<FirecrackerMissingKvm>()("FirecrackerMissingKvm", {}) {}
+
+export class FirecrackerMissingSetupFiles extends Schema.TaggedError<FirecrackerMissingSetupFiles>()(
+  "FirecrackerMissingSetupFiles",
+  {
+    files: Schema.Array(Schema.String),
+  }
+) {}

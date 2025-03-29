@@ -7,8 +7,8 @@ export const AppLayout = (props: ParentProps) => {
   const { open: sidebarOpen } = useSidebar();
   return (
     <div
-      class={cn("w-full flex flex-col h-screen overflow-clip p-2 gap-2 transition-[padding] duration-300", {
-        "pl-0": sidebarOpen(),
+      class={cn("w-full flex flex-col h-screen overflow-clip p-2 gap-2 transition-[padding] duration-300 md:pl-0", {
+        // "pl-0": sidebarOpen(),
       })}
       style={{
         "scrollbar-gutter": "stable both-edges",

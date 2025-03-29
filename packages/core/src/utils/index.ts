@@ -1,7 +1,7 @@
 import { Command, FetchHttpClient, FileSystem, HttpClient, HttpClientRequest, Path } from "@effect/platform";
 import { BunContext, BunFileSystem } from "@effect/platform-bun";
 import { Chunk, Config, Effect, pipe, Stream } from "effect";
-import type { LoggerCollection } from "../logger";
+import { BaseLoggerService, type LoggerCollection } from "../logger";
 import { DownloadNoUrlProvided } from "./errors";
 import type { FileDownload } from "./schemas";
 
@@ -20,19 +20,28 @@ export const fetch = (request: HttpClientRequest.HttpClientRequest) =>
 export const downloaded_file = (fd: FileDownload) =>
   Effect.gen(function* (_) {
     const fs = yield* _(FileSystem.FileSystem);
+    const base_logger = yield* _(BaseLoggerService);
+    const logger = base_logger.withGroup("download");
     const force = fd.force ?? false;
 
     if (fd.exists) {
       if (force === false) {
+        logger.info("download", "File already exists, skipping", fd.to);
         return yield* Effect.succeed(fd);
       }
     }
-    if (!fd.from) return yield* Effect.fail(DownloadNoUrlProvided);
+    if (!fd.from) {
+      logger.error("download", "No url provided for", fd.to);
+      return yield* Effect.fail(DownloadNoUrlProvided);
+    }
 
     const exists = yield* fs.exists(fd.to);
-    if (exists && !force) return yield* Effect.succeed(fd);
+    if (exists && !force) {
+      logger.info("download", "File already exists, skipping", fd.to);
+      return yield* Effect.succeed(fd);
+    }
 
-    // yield* Effect.log(`Downloading ${fd.from} to ${fd.to}...`);
+    logger.info("download", "Downloading", fd.from, "to", fd.to);
 
     const request = HttpClientRequest.make("GET")(fd.from);
 
@@ -48,8 +57,10 @@ export const downloaded_file = (fd: FileDownload) =>
     for (const byte of bytes) {
       concatted.set(byte, offset);
       offset += byte.length;
+      logger.info("download", `Downloaded ${offset}/${totalLength}`);
     }
     yield* fs.writeFile(fd.to, concatted);
+    logger.info("download", `Downloaded ${totalLength} bytes to ${fd.to}`);
     return yield* Effect.succeed({ ...fd, exists: true } as FileDownload);
   }).pipe(
     Effect.catchAll(() => Effect.succeed({ ...fd, exists: false } as FileDownload)),

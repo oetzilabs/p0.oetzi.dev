@@ -7,6 +7,7 @@ import { machine_configs } from "./machine_configs";
 import { servers } from "./servers";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-valibot";
+import { virtual_machine_snapshots } from "./virtual_machine_snapshots";
 
 export const virtual_machines = commonTable(
   "virtual_machines",
@@ -52,10 +53,11 @@ export const virtual_machines_relations = relations(virtual_machines, ({ one, ma
     fields: [virtual_machines.machine_config_id],
     references: [machine_configs.id],
   }),
+  snapshots: many(virtual_machine_snapshots),
 }));
 
-export const VirtuaMachineSchema = createSelectSchema(virtual_machines);
-export type VirtuaMachineInfo = InferOutput<typeof VirtuaMachineSchema>;
+export const VirtualMachineSchema = createSelectSchema(virtual_machines);
+export type VirtualMachineInfo = InferOutput<typeof VirtualMachineSchema>;
 
 export const VirtualMachineCreateSchema = createInsertSchema(virtual_machines);
 export type VirtualMachineCreate = InferOutput<typeof VirtualMachineCreateSchema>;

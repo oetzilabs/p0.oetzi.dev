@@ -94,8 +94,10 @@ export default function App() {
                     />
                     <Socket endpoint="localhost:34437" disabled={() => true}>
                       <SidebarProvider>
-                        <AppSidebar />
-                        <AppLayout>{props.children}</AppLayout>
+                        <div class="flex flex-row h-full w-full gap-2">
+                          <AppSidebar />
+                          <AppLayout>{props.children}</AppLayout>
+                        </div>
                       </SidebarProvider>
                     </Socket>
                   </ColorModeProvider>

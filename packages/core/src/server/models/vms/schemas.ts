@@ -20,7 +20,19 @@ export const CreateVirtualMachineSchema = Schema.Struct({
 
 export type CreateVirtualMachine = Schema.Schema.Type<typeof CreateVirtualMachineSchema>;
 
+export const CreateVirtualMachineConfigSchema = Schema.Struct({
+  bootSourceFile: Schema.NullOr(Schema.instanceOf(File)),
+  mem_size_mib: Schema.Number,
+  vcpu_count: Schema.Number,
+  server_id: Schema.String,
+  jailed: Schema.Boolean,
+  type: VmTypeSchema,
+});
+
+export type CreateVirtualMachineConfig = Schema.Schema.Type<typeof CreateVirtualMachineConfigSchema>;
+
 export const RemoveVirtualMachineSchema = Schema.String;
+export type RemoveVirtualMachine = Schema.Schema.Type<typeof RemoveVirtualMachineSchema>;
 
 export const VirtualMachineSchema = VmConfigSchema;
 

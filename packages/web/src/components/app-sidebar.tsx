@@ -49,7 +49,7 @@ const bottomItems = [
 export function AppSidebar() {
   const { colorMode, toggleColorMode } = useColorMode();
   return (
-    <Sidebar variant="floating">
+    <Sidebar variant="floating" class="!pr-0">
       <SidebarHeader>
         <A href="/" class="w-full flex flex-col items-center justify-center ">
           <DomainAsLogo />
