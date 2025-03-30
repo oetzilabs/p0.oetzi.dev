@@ -1,30 +1,29 @@
+import { configureTerminalAccess } from "@/api/server_terminals";
 import { findById } from "@/api/servers";
 import { configList, seedDefaults } from "@/api/virtualmachine";
+import AddVirtualMachineForm from "@/components/forms/virtual_machine/add";
+import { VirtualMachineDropdownMenu } from "@/components/menus/virtual_machine";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TextField, TextFieldInput } from "@/components/ui/text-field";
 import NotFound from "@/routes/[...404]";
-import { A, createAsync, revalidate, RouteDefinition, useAction, useParams, useSubmission } from "@solidjs/router";
-import Loader2 from "lucide-solid/icons/loader-2";
-import Plus from "lucide-solid/icons/plus";
-import PackagePlus from "lucide-solid/icons/package-plus";
-import Pencil from "lucide-solid/icons/pencil";
-import { createSignal, For, Show, Suspense } from "solid-js";
 import { ServerInfo, VirtualMachineInfo } from "@p0/core/src/db/schema";
-import RefreshCcw from "lucide-solid/icons/refresh-ccw";
-import X from "lucide-solid/icons/x";
-import SeedIcon from "lucide-solid/icons/palette";
-import { toast } from "solid-sonner";
-import Settings from "lucide-solid/icons/settings";
-import AddVirtualMachineForm from "@/components/forms/virtual_machine/add";
-import Trash from "lucide-solid/icons/trash";
-import Cpu from "lucide-solid/icons/cpu";
-import MemoryStick from "lucide-solid/icons/memory-stick";
-import { DropdownMenu } from "../../../../components/ui/dropdown-menu";
-import { VirtualMachineDropdownMenu } from "../../../../components/menus/virtual_machine";
-import { TextField, TextFieldInput } from "../../../../components/ui/text-field";
+import { A, createAsync, revalidate, RouteDefinition, useAction, useParams, useSubmission } from "@solidjs/router";
 import { clientOnly } from "@solidjs/start";
-
-const ServerTerminal = clientOnly(() => import("@/components/ServerTerminal"));
+import Cpu from "lucide-solid/icons/cpu";
+import Loader2 from "lucide-solid/icons/loader-2";
+import MemoryStick from "lucide-solid/icons/memory-stick";
+import PackagePlus from "lucide-solid/icons/package-plus";
+import SeedIcon from "lucide-solid/icons/palette";
+import Pencil from "lucide-solid/icons/pencil";
+import Plus from "lucide-solid/icons/plus";
+import RefreshCcw from "lucide-solid/icons/refresh-ccw";
+import Settings from "lucide-solid/icons/settings";
+import TerminalIcon from "lucide-solid/icons/terminal";
+import X from "lucide-solid/icons/x";
+import { createSignal, For, Show, Suspense } from "solid-js";
+import { toast } from "solid-sonner";
+const Terminally = clientOnly(() => import("~/components/ServerTerminal"));
 
 // Taken from https://coolors.co/f94144-f3722c-f8961e-f9c74f-90be6d-43aa8b-577590
 const statusColors = {
@@ -64,10 +63,20 @@ export default function ServerPage() {
   const seedDefaultConfigurations = useAction(seedDefaults);
   const seedingDefaultConfigurations = useSubmission(seedDefaults);
 
+  const configureTerminal = useAction(configureTerminalAccess);
+  const configuringTerminal = useSubmission(configureTerminalAccess);
+
   const [vmSearch, setVmSearch] = createSignal("");
+  const [enabled, setEnabled] = createSignal(false);
 
   return (
-    <Suspense fallback={<Loader2 class="size-4 text-muted-foreground animate-spin" />}>
+    <Suspense
+      fallback={
+        <div class="w-full flex flex-col items-center justify-center grow">
+          <Loader2 class="size-4 text-muted-foreground animate-spin" />
+        </div>
+      }
+    >
       <Show when={server()} fallback={<NotFound />}>
         {(s) => (
           <div class="flex w-full flex-col h-content grow gap-2 ">
@@ -268,7 +277,9 @@ export default function ServerPage() {
                     each={s().vms.filter((vm) => vm.type === "worker")}
                     fallback={
                       <div class="flex flex-col items-center justify-center w-full col-span-full gap-4 p-12 bg-muted/25 rounded border">
-                        <span class="text-muted-foreground">There are currently no Workers on this server.</span>
+                        <span class="text-muted-foreground text-sm">
+                          There are currently no Workers on this server.
+                        </span>
                         <div class="flex flex-row gap-2">
                           <Button size="sm" class="w-max gap-2">
                             Create Worker
@@ -300,26 +311,65 @@ export default function ServerPage() {
                   </div>
                 </div>
               </div>
-              <div class="w-full flex flex-col">
-                <div class="w-full flex flex-col px-2 bg-black rounded border">
-                  <Suspense
-                    fallback={
-                      <div class="w-full flex flex-col items-center justify-center p-10">
-                        <Loader2 class="size-4 animate-spin" />
-                      </div>
-                    }
-                  >
-                    <ServerTerminal
-                      serverId={s().id}
-                      fallback={
-                        <div class="w-full flex flex-col items-center justify-center p-10">
-                          <Loader2 class="size-4 animate-spin" />
+              <Show
+                when={s().websocket_url !== null && s().websocket_url}
+                fallback={
+                  <div class="w-full flex flex-col items-center justify-center p-10 bg-muted/25 rounded border gap-4">
+                    <span class="text-muted-foreground text-sm">This server does not have terminal access.</span>
+                    <Button
+                      size="sm"
+                      class="w-max gap-2"
+                      onClick={() => {
+                        toast.promise(configureTerminal(s().id), {
+                          loading: "Configuring...",
+                          success: "Configured!",
+                          error: (e) => `Failed to configure terminal access: ${e.message}`,
+                        });
+                      }}
+                      disabled={configuringTerminal.pending ?? false}
+                    >
+                      <Show
+                        when={!configuringTerminal.pending}
+                        fallback={
+                          <>
+                            Configuring
+                            <Loader2 class="size-4 animate-spin" />
+                          </>
+                        }
+                      >
+                        Configure Terminal Access
+                        <TerminalIcon class="size-4" />
+                      </Show>
+                    </Button>
+                  </div>
+                }
+              >
+                {(wsLink) => (
+                  <div class="w-full flex flex-col">
+                    <div class="flex flex-col w-full h-min">
+                      <Show
+                        when={!enabled()}
+                        fallback={
+                          <Terminally
+                            wsLink={wsLink()}
+                            fallback={
+                              <div class="w-full flex flex-col items-center justify-center p-10">
+                                <Loader2 class="size-4 animate-spin" />
+                              </div>
+                            }
+                          />
+                        }
+                      >
+                        <div class="flex flex-col gap-2 w-full h-min p-10 bg-muted rounded border items-center justify-center">
+                          <Button size="sm" class="w-max" onClick={() => setEnabled(true)}>
+                            Enable Terminal
+                          </Button>
                         </div>
-                      }
-                    />
-                  </Suspense>
-                </div>
-              </div>
+                      </Show>
+                    </div>
+                  </div>
+                )}
+              </Show>
             </div>
           </div>
         )}

@@ -99,6 +99,7 @@ export class ServerRepository extends Effect.Service<ServerRepository>()("@p0/co
                 server_tags: {
                   with: { tag: true },
                 },
+                terminals: true,
               },
             })
             .execute()

@@ -141,6 +141,20 @@
       "when": 1743250508821,
       "tag": "0019_serious_tana_nile",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1743323158867,
+      "tag": "0020_complex_screwball",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1743326079989,
+      "tag": "0021_conscious_silverclaw",
+      "breakpoints": true
     }
   ]
 }

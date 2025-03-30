@@ -11,3 +11,4 @@ export * from "./schemas/boot_sources";
 export * from "./schemas/vms";
 export * from "./schemas/server_tags";
 export * from "./schemas/virtual_machine_snapshots";
+export * from "./schemas/server_terminals";

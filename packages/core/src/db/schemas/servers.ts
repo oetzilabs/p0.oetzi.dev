@@ -5,6 +5,7 @@ import type { InferOutput } from "valibot";
 import { server_has_server_tag } from "./server_tags";
 import { commonTable } from "./utils";
 import { virtual_machines } from "./vms";
+import { server_terminals } from "./server_terminals";
 
 export const servers = commonTable(
   "servers",
@@ -17,13 +18,15 @@ export const servers = commonTable(
       })
       .notNull()
       .default("unknown"),
+    websocket_url: t.text(),
   },
   "srv"
 );
 
-export const servers_relations = relations(servers, ({ one, many }) => ({
+export const servers_relations = relations(servers, ({ many }) => ({
   vms: many(virtual_machines),
   server_tags: many(server_has_server_tag),
+  terminals: many(server_terminals),
 }));
 
 export const ServerSchema = createSelectSchema(servers);

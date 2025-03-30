@@ -1,0 +1,1 @@
+ALTER TABLE `servers` ADD `websocket_url` text;

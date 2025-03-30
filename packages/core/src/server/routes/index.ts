@@ -8,11 +8,13 @@ import { BrokerRepository } from "../models/brokers/repository";
 import { ComputeUnitRepository } from "../models/compute_units/repository";
 import { ServerRepository } from "../models/servers/repository";
 import { SessionRepository } from "../models/sessions/repository";
+import { ServerTerminalRepository } from "../models/server_terminals/repository";
 import { ActorsGroup } from "./actors";
 import { BrokersGroup } from "./brokers";
 import { ComputeUnitsGroup } from "./compute_units";
 import { PagesGroup } from "./pages";
 import { ServersGroup } from "./servers";
+import { ServerTerminalsGroup } from "./server_terminals";
 import { BearerApiSecurity, SessionGroup } from "./sessions";
 
 export const AllApis = HttpApi.make("AllApis")
@@ -20,6 +22,7 @@ export const AllApis = HttpApi.make("AllApis")
   // add the groups
   .add(ComputeUnitsGroup)
   .add(ServersGroup)
+  .add(ServerTerminalsGroup)
   .add(SessionGroup)
   .add(ActorsGroup)
   .add(BrokersGroup);
@@ -174,10 +177,23 @@ export const ComputeUnitApiLive = HttpApiBuilder.group(AllApis, "ComputeUnits", 
   })
 ).pipe(Layer.provide(ComputeUnitRepository.Default), Layer.provide(AuthorizationLive));
 
+export const ServerTerminalApiLive = HttpApiBuilder.group(AllApis, "ServerTerminal", (handlers) =>
+  Effect.gen(function* (_) {
+    yield* Effect.log("creating ServerTerminalApiLive");
+    const terminal_repo = yield* _(ServerTerminalRepository);
+    return handlers
+      .handle("listAllServerTerminals", () => terminal_repo.all)
+      .handle("getServerTerminal", (params) => terminal_repo.find_by_id(params.path.server_terminal_id))
+      .handle("deleteServerTerminal", (params) => terminal_repo.remove(params.path.server_terminal_id))
+      .handle("createServerTerminal", (params) => terminal_repo.create(params.payload));
+  })
+).pipe(Layer.provide(ServerTerminalRepository.Default), Layer.provide(AuthorizationLive));
+
 export const AllApisLive = HttpApiBuilder.api(AllApis).pipe(
   Layer.provide(ComputeUnitApiLive),
   Layer.provide(PagesApiLive),
   Layer.provide(ServerApiLive),
+  Layer.provide(ServerTerminalApiLive),
   Layer.provide(BrokersApiLive),
   Layer.provide(SessionApiLive),
   Layer.provide(ActorsApiLive)
