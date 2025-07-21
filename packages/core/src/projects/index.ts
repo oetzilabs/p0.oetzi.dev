@@ -84,7 +84,7 @@ export class Project extends Data.TaggedClass("@p0/core/project")<ProjectProps> 
         let possible_cuid = props;
         if (has_folder_prefix) {
           base_path = props.split("/").slice(0, -1).join("/");
-          possible_cuid = props.split("/").slice(-1)[0];
+          possible_cuid = props.split("/").slice(-1)[0]!;
         }
         const is_valid_cuid = isCuid(possible_cuid);
         if (is_valid_cuid) {
